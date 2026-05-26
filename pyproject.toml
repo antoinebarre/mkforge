@@ -1,7 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "mkforge"
 version = "0.1.0"
-description = "Add your description here"
+description = "Programmatic Markdown report generation for Python."
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "Antoine Barré" }]
+keywords = [
+    "markdown",
+    "report",
+    "reporting",
+    "docs-as-code",
+    "ci",
+    "quality",
+    "automation",
+    "python",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/antoinebarre/mkforge"
+Repository = "https://github.com/antoinebarre/mkforge"
+Issues = "https://github.com/antoinebarre/mkforge/issues"
+Documentation = "https://github.com/antoinebarre/mkforge/blob/main/README.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mkforge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+cache_dir = "work/.pytest_cache"
+
+[tool.mypy]
+strict = true
+packages = ["mkforge"]
+mypy_path = "src"
+cache_dir = "work/.mypy_cache"
+
+[tool.ruff]
+cache-dir = "work/.ruff_cache"
+line-length = 79
+
+[tool.uvforge]
+project_name = "mkforge"
+source_root = "src/mkforge"
+source_base = "src"
+config_namespace = "mkforge"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.10",
+    "pytest>=8",
+    "ruff>=0.4",
+]
+

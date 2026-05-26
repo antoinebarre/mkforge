@@ -1,20 +1,86 @@
-# mkforge
+# MkForge
 
-Projet Python.
+Programmatic Markdown report generation for Python.
+
+MkForge is a small Python toolkit for building structured, reproducible
+Markdown reports from code.
+
+It provides composable report primitives such as sections, paragraphs, tables,
+figures, metadata, checksums, and renderers so automation scripts can produce
+readable Markdown artifacts without hand-written string assembly.
+
+## Use Cases
+
+- Quality gate reports
+- CI and release summaries
+- Code metrics reports
+- Dependency audit reports
+- Generated technical appendices
+- Reproducible Markdown artifacts for documentation pipelines
+
+## Scope
+
+MkForge focuses on generating Markdown documents from structured Python data.
+
+It is not:
+
+- a Markdown project compiler;
+- a static site generator;
+- a CI runner;
+- a replacement for documentation tools such as MkDocs.
+
+Those tools can use MkForge as their reporting layer.
 
 ## Installation
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
+uv sync
 ```
 
-## Utilisation
+## Development
 
-Ajoutez ici les commandes principales du projet.
+```bash
+uv run ruff check .
+uv run mypy
+uv run pytest
+```
 
-## Structure
+Generated reports, coverage files, caches, and other local outputs belong in
+`work/`. The directory is kept in the repository with `work/.gitkeep`, while
+its generated contents are ignored by Git.
 
-- `work/` : espace de travail local, ignore par Git.
+## Example
+
+```python
+from mkforge import Metadata, Report, Section, Table
+
+report = Report(
+    metadata=Metadata(title="Quality Report"),
+    sections=[
+        Section.heading("Summary", level=2),
+        Section.paragraph("All checks passed."),
+        Table(
+            headers=("Check", "Status"),
+            rows=[
+                ("format", "pass"),
+                ("lint", "pass"),
+                ("tests", "pass"),
+            ],
+        ),
+    ],
+)
+
+markdown = report.render()
+```
+
+## Relationship With Scribpy
+
+MkForge is intended to be independent from Scribpy.
+
+- `mkforge` generates Markdown reports from Python data.
+- `scribpy` assembles and builds Markdown documentation projects.
+- `uvforge` initializes and runs quality gates for Python packages using `uv`.
+
+Scribpy and uvforge may depend on MkForge for generated reports, but MkForge
+should not depend on either of them.
 
