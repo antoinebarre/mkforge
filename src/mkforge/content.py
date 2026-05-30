@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from mkforge.errors import InvalidTableError
+from mkforge.content_validation import (
+    validate_paragraph_content,
+    validate_text_style,
+)
+from mkforge.table_validation import validate_items, validate_table
+from mkforge.validation import require_string
 
 TextStyle = Literal["plain", "bold", "italic", "code", "strikethrough"]
 
@@ -16,6 +21,11 @@ class Text:
 
     content: str
     style: TextStyle = "plain"
+
+    def __post_init__(self) -> None:
+        """Validate text content and style."""
+        require_string(self.content, "Text content", allow_empty=True)
+        validate_text_style(self.style)
 
 
 @dataclass(frozen=True)
@@ -31,9 +41,7 @@ class Paragraph:
 
     def __post_init__(self) -> None:
         """Validate that plain paragraph content is not empty."""
-        if isinstance(self.content, str) and not self.content:
-            message = "Paragraph content cannot be empty."
-            raise ValueError(message)
+        validate_paragraph_content(self.content, (Text, LineBreak))
 
 
 @dataclass(frozen=True)
@@ -42,6 +50,11 @@ class CodeBlock:
 
     code: str
     language: str = ""
+
+    def __post_init__(self) -> None:
+        """Validate code block fields."""
+        require_string(self.code, "CodeBlock code", allow_empty=True)
+        require_string(self.language, "CodeBlock language", allow_empty=True)
 
 
 @dataclass(frozen=True)
@@ -53,11 +66,7 @@ class Table:
 
     def __post_init__(self) -> None:
         """Validate table dimensions."""
-        if not self.headers:
-            message = "Table headers cannot be empty."
-            raise InvalidTableError(message)
-        for index, row in enumerate(self.rows):
-            _validate_row_width(index, row, len(self.headers))
+        validate_table(self.headers, self.rows)
 
 
 @dataclass(frozen=True)
@@ -68,7 +77,7 @@ class BulletList:
 
     def __post_init__(self) -> None:
         """Validate that the list contains at least one item."""
-        _validate_items(self.items, "BulletList")
+        validate_items(self.items, "BulletList")
 
 
 @dataclass(frozen=True)
@@ -79,7 +88,7 @@ class NumberedList:
 
     def __post_init__(self) -> None:
         """Validate that the list contains at least one item."""
-        _validate_items(self.items, "NumberedList")
+        validate_items(self.items, "NumberedList")
 
 
 @dataclass(frozen=True)
@@ -89,6 +98,12 @@ class Image:
     path: str
     alt: str = ""
     title: str = ""
+
+    def __post_init__(self) -> None:
+        """Validate image fields."""
+        require_string(self.path, "Image path", allow_empty=False)
+        require_string(self.alt, "Image alt", allow_empty=True)
+        require_string(self.title, "Image title", allow_empty=True)
 
 
 @dataclass(frozen=True)
@@ -101,6 +116,10 @@ class BlockQuote:
     """Markdown block quote."""
 
     content: str
+
+    def __post_init__(self) -> None:
+        """Validate block quote content."""
+        require_string(self.content, "BlockQuote content", allow_empty=True)
 
 
 type ContentElement = (
@@ -126,28 +145,3 @@ CONTENT_TYPES = (
     HorizontalRule,
     BlockQuote,
 )
-
-
-def _validate_row_width(index: int, row: tuple[str, ...], width: int) -> None:
-    """Validate one table row width.
-
-    Args:
-        index: Zero-based row index.
-        row: Candidate row.
-        width: Expected column count.
-    """
-    if len(row) != width:
-        message = f"Row {index} has {len(row)} cells; expected {width}."
-        raise InvalidTableError(message)
-
-
-def _validate_items(items: tuple[str, ...], label: str) -> None:
-    """Validate that a list has at least one item.
-
-    Args:
-        items: Candidate item values.
-        label: List type label for errors.
-    """
-    if not items:
-        message = f"{label} must contain at least one item."
-        raise ValueError(message)

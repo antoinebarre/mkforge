@@ -180,6 +180,8 @@ Design decisions:
 - `Report.render()` delegates to `mkforge.markdown.render_report`.
 - `Report.save(path)` delegates to `mkforge.markdown.save_report`.
 - Metadata remains a free-form dictionary.
+- Metadata type, metadata keys, TOC flag, numbering flag, and initial children
+  are validated during construction.
 
 ### 9.2 Chapter
 
@@ -217,6 +219,10 @@ frozen because they are value-like and do not need composition methods.
 | `Image` | path, alt, title | none |
 | `HorizontalRule` | none | none |
 | `BlockQuote` | content | none |
+
+Runtime validation is intentionally stricter than type hints. Public
+constructors reject incorrect runtime types with explicit `TypeError` or
+`ValueError` messages before rendering can fail in lower-level code.
 
 ## 10. Markdown Heading Design
 
@@ -306,6 +312,7 @@ Example:
 | `InvalidTableError` | `Table` | empty headers or row width mismatch |
 | `ReportDepthError` | `compute_section_heading_level` | heading deeper than H6 |
 | `TypeError` | `render_content` | renderer receives unknown content type |
+| `TypeError` | constructors and render helpers | invalid runtime input type |
 
 ## 13. Interface Design
 
@@ -395,6 +402,7 @@ Verification assets:
 | SRS-FR-015 | `section_numbers.NumberingContext`, `markdown._heading_title` |
 | SRS-FR-016 | `markdown.render_report`, `markdown.save_report` |
 | SRS-FR-017 | `table_of_contents.anchor_slug`, `section_numbers.numbered_title` |
+| SRS-FR-018 | `validation`, `content_validation`, `table_validation`, constructor checks |
 
 ## 18. Known Limitations
 

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from mkforge.errors import InvalidChildError
 from mkforge.headings import Chapter, _validate_title
+from mkforge.validation import require_bool, require_metadata
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -33,6 +34,10 @@ class Report:
     def __post_init__(self) -> None:
         """Validate the report title."""
         _validate_title(self.title, "Report")
+        require_metadata(self.metadata)
+        require_bool(self.toc, "Report toc")
+        require_bool(self.auto_numbering, "Report auto_numbering")
+        _validate_chapters(self.children)
 
     def add(self, *items: Chapter) -> Report:
         """Append chapters and return this report.
@@ -78,3 +83,19 @@ def _validate_report_child(child: object) -> None:
     if not isinstance(child, Chapter):
         parent = "Report"
         raise InvalidChildError(parent, type(child).__name__)
+
+
+def _validate_chapters(children: object) -> None:
+    """Validate initial report children.
+
+    Args:
+        children: Candidate chapter list.
+    """
+    if not isinstance(children, list):
+        message = (
+            "Report children must be a list of Chapter; "
+            f"got {type(children).__name__}."
+        )
+        raise TypeError(message)
+    for child in children:
+        _validate_report_child(child)

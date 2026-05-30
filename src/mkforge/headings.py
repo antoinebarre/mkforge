@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from mkforge.content import CONTENT_TYPES, ContentElement
 from mkforge.errors import InvalidChildError, ReportDepthError
+from mkforge.validation import require_string
 
 MAX_HEADING_LEVEL = 6
 _SECTION_BASE_LEVEL = 3
@@ -26,6 +27,7 @@ class Section:
     def __post_init__(self) -> None:
         """Validate the section title."""
         _validate_title(self.title, "Section")
+        _validate_children("Section", self.children)
 
     def add(self, *items: Section | ContentElement) -> Section:
         """Append children and return this section.
@@ -57,6 +59,7 @@ class Chapter:
     def __post_init__(self) -> None:
         """Validate the chapter title."""
         _validate_title(self.title, "Chapter")
+        _validate_children("Chapter", self.children)
 
     def add(self, *items: Section | ContentElement) -> Chapter:
         """Append children and return this chapter.
@@ -82,6 +85,7 @@ def compute_section_heading_level(depth_from_chapter: int) -> int:
     Returns:
         Heading level between 3 and 6.
     """
+    _validate_section_depth(depth_from_chapter)
     level = _SECTION_BASE_LEVEL + depth_from_chapter - 1
     if level > MAX_HEADING_LEVEL:
         raise ReportDepthError(level)
@@ -95,9 +99,7 @@ def _validate_title(title: str, label: str) -> None:
         title: Candidate title.
         label: Container type label.
     """
-    if not title.strip():
-        message = f"{label} title cannot be empty."
-        raise ValueError(message)
+    require_string(title, f"{label} title", allow_empty=False)
 
 
 def _validate_container_child(parent: str, child: object) -> None:
@@ -109,3 +111,36 @@ def _validate_container_child(parent: str, child: object) -> None:
     """
     if not isinstance(child, (Section, *CONTENT_TYPES)):
         raise InvalidChildError(parent, type(child).__name__)
+
+
+def _validate_children(parent: str, children: object) -> None:
+    """Validate initial container children.
+
+    Args:
+        parent: Parent container label.
+        children: Candidate child list.
+    """
+    if not isinstance(children, list):
+        message = (
+            f"{parent} children must be a list; got {type(children).__name__}."
+        )
+        raise TypeError(message)
+    for child in children:
+        _validate_container_child(parent, child)
+
+
+def _validate_section_depth(depth_from_chapter: object) -> None:
+    """Validate a section depth input.
+
+    Args:
+        depth_from_chapter: Candidate section depth.
+    """
+    if not isinstance(depth_from_chapter, int):
+        message = (
+            "Section depth must be an int; "
+            f"got {type(depth_from_chapter).__name__}."
+        )
+        raise TypeError(message)
+    if depth_from_chapter < 1:
+        message = "Section depth must be greater than or equal to 1."
+        raise ValueError(message)

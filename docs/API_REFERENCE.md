@@ -99,6 +99,11 @@ Raises:
 | Condition | Exception |
 |---|---|
 | blank title | `ValueError` |
+| non-string title | `TypeError` |
+| non-dict metadata | `TypeError` |
+| non-string metadata key | `TypeError` |
+| non-bool `toc` or `auto_numbering` | `TypeError` |
+| invalid initial children collection | `TypeError` |
 | non-chapter passed to `add()` | `InvalidChildError` |
 
 Example:
@@ -151,6 +156,8 @@ Raises:
 | Condition | Exception |
 |---|---|
 | blank title | `ValueError` |
+| non-string title | `TypeError` |
+| invalid initial children collection | `TypeError` |
 | unsupported child | `InvalidChildError` |
 
 Example:
@@ -195,6 +202,8 @@ Raises:
 | Condition | Exception |
 |---|---|
 | blank title | `ValueError` |
+| non-string title | `TypeError` |
+| invalid initial children collection | `TypeError` |
 | unsupported child | `InvalidChildError` |
 | render below H6 | `ReportDepthError` |
 
@@ -227,6 +236,8 @@ Raises:
 | Condition | Exception |
 |---|---|
 | `content == ""` for plain string content | `ValueError` |
+| non-string and non-tuple content | `TypeError` |
+| tuple item other than `Text` or `LineBreak` | `TypeError` |
 
 Examples:
 
@@ -273,6 +284,8 @@ Supported styles:
 | `italic` | `*text*` |
 | `code` | `` `text` `` |
 | `strikethrough` | `~~text~~` |
+
+Invalid runtime styles raise `ValueError`.
 
 Example:
 
@@ -348,6 +361,8 @@ Raises:
 |---|---|
 | no headers | `InvalidTableError` |
 | row width differs from headers | `InvalidTableError` |
+| non-tuple headers or rows | `TypeError` |
+| non-string header or cell | `TypeError` |
 
 Example:
 
@@ -380,6 +395,8 @@ Raises:
 | Condition | Exception |
 |---|---|
 | no items | `ValueError` |
+| non-tuple items | `TypeError` |
+| non-string item | `TypeError` |
 
 Example:
 
@@ -406,6 +423,8 @@ Raises:
 | Condition | Exception |
 |---|---|
 | no items | `ValueError` |
+| non-tuple items | `TypeError` |
+| non-string item | `TypeError` |
 
 Example:
 

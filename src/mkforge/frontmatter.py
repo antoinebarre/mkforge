@@ -1,5 +1,7 @@
 """Markdown frontmatter rendering helpers."""
 
+from mkforge.validation import require_metadata, require_string
+
 
 def render_metadata(metadata: dict[str, object]) -> str:
     """Render metadata as YAML frontmatter.
@@ -10,6 +12,7 @@ def render_metadata(metadata: dict[str, object]) -> str:
     Returns:
         YAML frontmatter block.
     """
+    require_metadata(metadata)
     lines = ["---"]
     for key, value in metadata.items():
         _append_value(lines, key, value)
@@ -25,6 +28,7 @@ def _append_value(lines: list[str], key: str, value: object) -> None:
         key: Metadata key.
         value: Metadata value.
     """
+    require_string(key, "metadata key", allow_empty=False)
     if isinstance(value, list | tuple):
         _append_sequence(lines, key, value)
         return

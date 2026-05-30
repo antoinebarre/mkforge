@@ -217,6 +217,8 @@ Acceptance criteria:
 - A table with headers renders a GFM pipe table.
 - Empty headers raise `InvalidTableError`.
 - Any row whose width differs from the header width raises `InvalidTableError`.
+- Non-tuple headers, rows, or row values raise `TypeError` with field context.
+- Non-string cells raise `TypeError` with field and index context.
 
 ### SRS-FR-010 Lists
 
@@ -295,6 +297,23 @@ Acceptance criteria:
 
 - `anchor_slug(title)` returns the documented GFM-style slug.
 - `numbered_title(title, context)` prefixes a title with the active context.
+
+### SRS-FR-018 Defensive Input Validation
+
+MkForge shall validate public constructor and rendering inputs before they can
+cause unplanned `AttributeError`, `KeyError`, or low-context Python failures.
+
+Acceptance criteria:
+
+- Non-string titles raise `TypeError` with the affected title field.
+- Non-dictionary metadata raises `TypeError`.
+- Non-string metadata keys raise `TypeError`.
+- Non-boolean `toc` or `auto_numbering` flags raise `TypeError`.
+- Invalid initial `children` collections raise `TypeError` or `InvalidChildError`.
+- Invalid paragraph inline content raises `TypeError`.
+- Invalid `Text.style` raises `ValueError`.
+- Invalid save paths raise `TypeError` or `ValueError`.
+- `render_report(non_report)` raises `TypeError`.
 
 ## 11. Non-Functional Requirements
 
@@ -415,6 +434,7 @@ The package shall export these public names from `mkforge`:
 | SRS-FR-015 | `section_numbers.NumberingContext`, `markdown._heading_title` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
 | SRS-FR-016 | `markdown.render_report`, `markdown.save_report` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
 | SRS-FR-017 | `table_of_contents.anchor_slug`, `section_numbers.numbered_title` | `tests/test_helpers.py` |
+| SRS-FR-018 | `validation`, `content_validation`, `table_validation`, constructor checks | `tests/test_validation.py` |
 | SRS-NFR-001..007 | package and repository checks | `make check`, `demo_report.py`, document review |
 
 ## 16. Open Items
