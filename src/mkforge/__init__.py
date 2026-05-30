@@ -1,27 +1,25 @@
 """Programmatic Markdown report generation for Python."""
 
 from mkforge._metadata import PROJECT_DESCRIPTION, PROJECT_NAME
+from mkforge.content import (
+    BlockQuote,
+    BulletList,
+    CodeBlock,
+    HorizontalRule,
+    Image,
+    LineBreak,
+    NumberedList,
+    Paragraph,
+    Table,
+    Text,
+)
+from mkforge.document import Report
 from mkforge.errors import (
     InvalidChildError,
     InvalidTableError,
     ReportDepthError,
 )
-from mkforge.nodes import (
-    BlockQuote,
-    BulletList,
-    Chapter,
-    CodeBlock,
-    HorizontalRule,
-    Image,
-    LineBreak,
-    Metadata,
-    NumberedList,
-    Paragraph,
-    Report,
-    Section,
-    Table,
-    Text,
-)
+from mkforge.headings import Chapter, Section
 
 __all__ = [
     "PROJECT_DESCRIPTION",
@@ -35,7 +33,6 @@ __all__ = [
     "InvalidChildError",
     "InvalidTableError",
     "LineBreak",
-    "Metadata",
     "NumberedList",
     "Paragraph",
     "Report",

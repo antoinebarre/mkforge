@@ -1,4 +1,4 @@
-"""Leaf report nodes rendered as Markdown content blocks or inline text."""
+"""Markdown content elements rendered inside reports."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class LineBreak:
 
 @dataclass(frozen=True)
 class Paragraph:
-    """Paragraph block containing plain text or inline nodes."""
+    """Paragraph block containing plain text or inline content."""
 
     content: str | tuple[Text | LineBreak, ...]
 
@@ -103,7 +103,7 @@ class BlockQuote:
     content: str
 
 
-type LeafNode = (
+type ContentElement = (
     Paragraph
     | Text
     | CodeBlock
@@ -115,7 +115,7 @@ type LeafNode = (
     | BlockQuote
 )
 
-LEAF_TYPES = (
+CONTENT_TYPES = (
     Paragraph,
     Text,
     CodeBlock,

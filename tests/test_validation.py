@@ -14,7 +14,7 @@ from mkforge import (
     Section,
     Table,
 )
-from mkforge.block_renderers import render_leaf
+from mkforge.markdown_content import render_content
 
 
 def test_validation_rejects_invalid_children() -> None:
@@ -30,7 +30,7 @@ def test_validation_rejects_invalid_children() -> None:
     with pytest.raises(InvalidChildError):
         Section("Invalid").add(object())  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="Unknown node type"):
-        render_leaf(object())
+        render_content(object())
 
 
 def test_validation_rejects_invalid_titles() -> None:
@@ -40,8 +40,8 @@ def test_validation_rejects_invalid_titles() -> None:
             factory(" ")
 
 
-def test_validation_rejects_invalid_leaf_data() -> None:
-    """Requirement: leaf nodes reject invalid construction data."""
+def test_validation_rejects_invalid_content_data() -> None:
+    """Requirement: content elements reject invalid construction data."""
     with pytest.raises(ValueError, match="Paragraph content"):
         Paragraph("")
     with pytest.raises(ValueError, match="BulletList"):

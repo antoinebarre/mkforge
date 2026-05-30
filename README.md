@@ -65,11 +65,11 @@ quality or packaging execution. The directory is kept in the repository with
 ## Example
 
 ```python
-from mkforge import Chapter, Metadata, Paragraph, Report, Section, Table
+from mkforge import Chapter, Paragraph, Report, Section, Table
 
 report = Report(
     title="Quality Report",
-    metadata=Metadata(title="Quality Report"),
+    metadata={"title": "Quality Report", "tags": ["quality", "ci"]},
     toc=True,
 ).add(
     Chapter("Summary").add(

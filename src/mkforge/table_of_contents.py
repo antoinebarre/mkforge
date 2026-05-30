@@ -5,12 +5,12 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from mkforge.nodes import Section
+from mkforge.headings import Section
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from mkforge.report import Report
+    from mkforge.document import Report
 
 
 def anchor_slug(title: str) -> str:

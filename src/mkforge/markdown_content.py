@@ -1,11 +1,11 @@
-"""Markdown renderers for leaf report nodes."""
+"""Markdown renderers for report content elements."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from typing import cast
 
-from mkforge.leaves import (
+from mkforge.content import (
     BlockQuote,
     BulletList,
     CodeBlock,
@@ -21,11 +21,11 @@ from mkforge.leaves import (
 type BlockRenderer = Callable[[object], str]
 
 
-def render_leaf(node: object) -> str:
-    """Render a leaf node.
+def render_content(node: object) -> str:
+    """Render one content element.
 
     Args:
-        node: Leaf node to render.
+        node: Content element to render.
 
     Returns:
         Rendered Markdown block.

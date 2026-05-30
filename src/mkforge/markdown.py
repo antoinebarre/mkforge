@@ -1,24 +1,24 @@
-"""Pure GitHub Flavored Markdown rendering for MkForge report nodes."""
+"""Pure GitHub Flavored Markdown rendering for MkForge reports."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from mkforge.block_renderers import render_leaf
-from mkforge.containers import (
+from mkforge.frontmatter import render_metadata
+from mkforge.headings import (
     Chapter,
     Section,
     compute_section_heading_level,
 )
-from mkforge.metadata_renderer import render_metadata
-from mkforge.numbering import NumberingContext, numbered_title
-from mkforge.toc import generate_toc
+from mkforge.markdown_content import render_content
+from mkforge.section_numbers import NumberingContext, numbered_title
+from mkforge.table_of_contents import generate_toc
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from mkforge.report import Report
+    from mkforge.document import Report
 
 
 def render_report(report: Report) -> str:
@@ -84,7 +84,7 @@ def _render_chapter(
 ) -> str:
     """Render one chapter and its children."""
     title = _heading_title(chapter.title, context)
-    parts = [f"# {title}"]
+    parts = [f"## {title}"]
     _render_children(parts, chapter.children, depth=1, context=context)
     return "\n\n".join(parts)
 
@@ -95,7 +95,7 @@ def _render_children(
     depth: int,
     context: NumberingContext | None,
 ) -> None:
-    """Append rendered child nodes."""
+    """Append rendered child content."""
     _enter_level(context)
     parts.extend(_render_child(child, depth, context) for child in children)
     _leave_level(context)
@@ -106,10 +106,10 @@ def _render_child(
     depth: int,
     context: NumberingContext | None,
 ) -> str:
-    """Render one child node."""
+    """Render one child item."""
     if isinstance(child, Section):
         return _render_section(child, depth, context)
-    return render_leaf(child)
+    return render_content(child)
 
 
 def _render_section(

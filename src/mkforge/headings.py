@@ -1,33 +1,33 @@
-"""Container report nodes for Markdown report composition."""
+"""Chapter and section classes for Markdown report composition."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from mkforge.content import CONTENT_TYPES, ContentElement
 from mkforge.errors import InvalidChildError, ReportDepthError
-from mkforge.leaves import LEAF_TYPES, LeafNode
 
 MAX_HEADING_LEVEL = 6
-_SECTION_BASE_LEVEL = 2
+_SECTION_BASE_LEVEL = 3
 
 
 @dataclass
 class Section:
-    """Heading container rendered as H2 through H6.
+    """Heading container rendered as H3 through H6.
 
     Attributes:
         title: Non-empty section title.
-        children: Ordered section or leaf child nodes.
+        children: Ordered sections or Markdown content elements.
     """
 
     title: str
-    children: list[Section | LeafNode] = field(default_factory=list)
+    children: list[Section | ContentElement] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Validate the section title."""
         _validate_title(self.title, "Section")
 
-    def add(self, *items: Section | LeafNode) -> Section:
+    def add(self, *items: Section | ContentElement) -> Section:
         """Append children and return this section.
 
         Args:
@@ -44,21 +44,21 @@ class Section:
 
 @dataclass
 class Chapter:
-    """Top-level report container rendered as H1.
+    """Top-level report container rendered as H2.
 
     Attributes:
         title: Non-empty chapter title.
-        children: Ordered section or leaf child nodes.
+        children: Ordered sections or Markdown content elements.
     """
 
     title: str
-    children: list[Section | LeafNode] = field(default_factory=list)
+    children: list[Section | ContentElement] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Validate the chapter title."""
         _validate_title(self.title, "Chapter")
 
-    def add(self, *items: Section | LeafNode) -> Chapter:
+    def add(self, *items: Section | ContentElement) -> Chapter:
         """Append children and return this chapter.
 
         Args:
@@ -73,27 +73,6 @@ class Chapter:
         return self
 
 
-@dataclass(frozen=True)
-class Metadata:
-    """YAML frontmatter metadata.
-
-    Attributes:
-        title: Optional document title.
-        author: Optional author name.
-        date: Optional publication date.
-        version: Optional document version.
-        description: Optional summary.
-        tags: Optional keyword tags.
-    """
-
-    title: str | None = None
-    author: str | None = None
-    date: str | None = None
-    version: str | None = None
-    description: str | None = None
-    tags: tuple[str, ...] = ()
-
-
 def compute_section_heading_level(depth_from_chapter: int) -> int:
     """Return the Markdown heading level for a section depth.
 
@@ -101,7 +80,7 @@ def compute_section_heading_level(depth_from_chapter: int) -> int:
         depth_from_chapter: One-based nesting depth below a chapter.
 
     Returns:
-        Heading level between 2 and 6.
+        Heading level between 3 and 6.
     """
     level = _SECTION_BASE_LEVEL + depth_from_chapter - 1
     if level > MAX_HEADING_LEVEL:
@@ -128,5 +107,5 @@ def _validate_container_child(parent: str, child: object) -> None:
         parent: Parent container label.
         child: Candidate child node.
     """
-    if not isinstance(child, (Section, *LEAF_TYPES)):
+    if not isinstance(child, (Section, *CONTENT_TYPES)):
         raise InvalidChildError(parent, type(child).__name__)

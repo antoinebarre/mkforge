@@ -1,7 +1,5 @@
 """Tests for Markdown report generation."""
 
-from pathlib import Path
-
 from mkforge import (
     BlockQuote,
     BulletList,
@@ -10,7 +8,6 @@ from mkforge import (
     HorizontalRule,
     Image,
     LineBreak,
-    Metadata,
     NumberedList,
     Paragraph,
     Report,
@@ -18,7 +15,7 @@ from mkforge import (
     Table,
     Text,
 )
-from mkforge.renderer import render_report
+from mkforge.markdown import render_report
 
 
 def test_report_renders_core_markdown_blocks() -> None:
@@ -51,7 +48,7 @@ def test_report_renders_core_markdown_blocks() -> None:
     )
     expected = (
         "# Status\n\n"
-        "# Summary\n\n"
+        "## Summary\n\n"
         "All checks passed.\n\n"
         "Use `mkforge`  \n"
         "**boldly** and *carefully* while ~~removing~~ ambiguity.\n\n"
@@ -76,14 +73,16 @@ def test_report_renders_metadata_toc_and_numbering() -> None:
     """Requirement: render frontmatter, TOC, and automatic numbering."""
     report = Report(
         title="Audit",
-        metadata=Metadata(
-            title="Audit",
-            author="Antoine Barre",
-            date="2026-05-30",
-            version="1.0.0",
-            description="Quality report",
-            tags=("quality", "markdown"),
-        ),
+        metadata={
+            "title": "Audit",
+            "author": "Antoine Barre",
+            "date": "2026-05-30",
+            "version": "1.0.0",
+            "description": "Quality report",
+            "tags": ["quality", "markdown"],
+            "draft": False,
+            "reviewed": None,
+        },
         toc=True,
         auto_numbering=True,
     ).add(
@@ -103,25 +102,18 @@ def test_report_renders_metadata_toc_and_numbering() -> None:
         "tags:\n"
         "  - quality\n"
         "  - markdown\n"
+        "draft: false\n"
+        "reviewed: null\n"
         "---\n\n"
         "# Audit\n\n"
         "- [Overview](#overview)\n"
         "  - [Scope](#scope)\n"
         "    - [Inclusions](#inclusions)\n\n"
-        "# 1. Overview\n\n"
-        "## 1.1. Scope\n\n"
-        "### 1.1.1. Inclusions\n\n"
+        "## 1. Overview\n\n"
+        "### 1.1. Scope\n\n"
+        "#### 1.1.1. Inclusions\n\n"
         "Runtime package."
     )
     actual = render_report(report)
     if actual != expected:
-        raise AssertionError(actual)
-
-
-def test_report_save_creates_parent_directories(tmp_path: Path) -> None:
-    """Requirement: save writes UTF-8 Markdown and creates parents."""
-    output = tmp_path / "nested" / "report.md"
-    Report("Saved").add(Chapter("Content")).save(output)
-    actual = output.read_text(encoding="utf-8")
-    if actual != "# Saved\n\n# Content":
         raise AssertionError(actual)

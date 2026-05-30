@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from mkforge.containers import Chapter, Metadata, _validate_title
 from mkforge.errors import InvalidChildError
+from mkforge.headings import Chapter, _validate_title
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -18,15 +18,15 @@ class Report:
 
     Attributes:
         title: Non-empty report title.
-        children: Ordered chapter nodes.
-        metadata: Optional YAML frontmatter.
+        children: Ordered chapters.
+        metadata: Optional YAML frontmatter dictionary.
         toc: Whether to render a table of contents.
         auto_numbering: Whether to number chapters and sections.
     """
 
     title: str
     children: list[Chapter] = field(default_factory=list)
-    metadata: Metadata | None = None
+    metadata: dict[str, object] | None = None
     toc: bool = False
     auto_numbering: bool = False
 
@@ -38,7 +38,7 @@ class Report:
         """Append chapters and return this report.
 
         Args:
-            *items: Chapter nodes.
+            *items: Chapters to append.
 
         Returns:
             This report instance.
@@ -54,7 +54,7 @@ class Report:
         Returns:
             GitHub Flavored Markdown text.
         """
-        from mkforge.renderer import render_report  # noqa: PLC0415
+        from mkforge.markdown import render_report  # noqa: PLC0415
 
         return render_report(self)
 
@@ -64,7 +64,7 @@ class Report:
         Args:
             path: Destination Markdown file path.
         """
-        from mkforge.renderer import save_report  # noqa: PLC0415
+        from mkforge.markdown import save_report  # noqa: PLC0415
 
         save_report(self, path)
 
