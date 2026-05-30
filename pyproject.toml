@@ -1,0 +1,100 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mkforge"
+version = "0.1.0"
+description = "Programmatic Markdown report generation for Python."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "Antoine Barré" }]
+keywords = [
+    "markdown",
+    "report",
+    "reporting",
+    "docs-as-code",
+    "ci",
+    "quality",
+    "automation",
+    "python",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/antoinebarre/mkforge"
+Repository = "https://github.com/antoinebarre/mkforge"
+Issues = "https://github.com/antoinebarre/mkforge/issues"
+Documentation = "https://github.com/antoinebarre/mkforge/blob/main/README.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mkforge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short --cov=src/mkforge --cov-report=term-missing --cov-fail-under=100"
+pythonpath = ["src"]
+cache_dir = "work/.pytest_cache"
+
+[tool.coverage.run]
+data_file = "work/.coverage"
+source = ["src/mkforge"]
+
+[tool.mypy]
+strict = true
+packages = ["mkforge"]
+mypy_path = "src"
+cache_dir = "work/.mypy_cache"
+
+[tool.ruff]
+cache-dir = "work/.ruff_cache"
+line-length = 79
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.flake8]
+max-line-length = 79
+max-complexity = 4
+docstring-convention = "google"
+count = true
+show-source = true
+statistics = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "work", ".venv"]
+
+[tool.mkforge.code_metrics]
+paths = ["src/mkforge", "tests"]
+exclude = []
+max_cyclomatic_complexity = 4
+max_average_complexity = 2.0
+min_maintainability_index = 85
+max_module_logical_lines = 120
+max_module_source_lines = 180
+
+[tool.uvforge]
+project_name = "mkforge"
+source_root = "src/mkforge"
+source_base = "src"
+config_namespace = "mkforge"
+
+[dependency-groups]
+dev = [
+    "bandit>=1.8",
+    "flake8>=7",
+    "flake8-bugbear>=24",
+    "flake8-docstrings>=1.7",
+    "flake8-pyproject>=1.2",
+    "mypy>=1.10",
+    "pep8-naming>=0.14",
+    "pip-audit>=2.8",
+    "pytest>=8",
+    "pytest-cov>=6",
+    "ruff>=0.4",
+    "twine>=6",
+]
