@@ -40,14 +40,27 @@ uv sync
 ## Development
 
 ```bash
-uv run ruff check .
-uv run mypy
-uv run pytest
+make check
 ```
 
-Generated reports, coverage files, caches, and other local outputs belong in
-`work/`. The directory is kept in the repository with `work/.gitkeep`, while
-its generated contents are ignored by Git.
+`make check` runs formatting, Ruff, Flake8, docstring checks, Mypy, code
+metrics, security checks, tests, and 100% coverage validation.
+
+For CI-style non-mutating checks:
+
+```bash
+make ci
+```
+
+For package validation before publishing:
+
+```bash
+make check-dist
+```
+
+Temporary outputs are created under `work/` and removed at the end of each
+quality or packaging execution. The directory is kept in the repository with
+`work/.gitkeep`.
 
 ## Example
 
@@ -83,4 +96,3 @@ MkForge is intended to be independent from Scribpy.
 
 Scribpy and uvforge may depend on MkForge for generated reports, but MkForge
 should not depend on either of them.
-

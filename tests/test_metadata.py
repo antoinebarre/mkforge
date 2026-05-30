@@ -1,9 +1,14 @@
+"""Tests for package metadata."""
+
 from mkforge import PROJECT_DESCRIPTION, PROJECT_NAME
 
 
 def test_package_metadata() -> None:
-    """Requirement: package metadata exposes the MkForge project identity."""
-    assert PROJECT_NAME == "mkforge"
-    assert PROJECT_DESCRIPTION == (
-        "Programmatic Markdown report generation for Python."
+    """Requirement: expose the MkForge package metadata identity."""
+    expected = (
+        "mkforge",
+        "Programmatic Markdown report generation for Python.",
     )
+    actual = (PROJECT_NAME, PROJECT_DESCRIPTION)
+    if expected != actual:
+        raise AssertionError(actual)

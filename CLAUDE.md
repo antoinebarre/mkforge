@@ -4,10 +4,12 @@ These instructions apply to the whole repository.
 
 ## Coding Standards
 
-- Follow the Google Python Style Guide for all Python code.
+- Strictly follow Python PEP rules and the Google Python Style Guide for all
+  Python code.
 - Keep each function's cyclomatic complexity below 5.
 - Keep maintainability above 85 when maintainability is measured.
-- Write Google-style docstrings for private functions.
+- Write Google-style docstrings for every function and class, including private
+  functions and classes.
 - Write clean, auditable code with simple control flow.
 - Favor clarity over cleverness.
 - Use precise names for modules, classes, functions, variables, and tests.
@@ -31,14 +33,16 @@ These instructions apply to the whole repository.
 - Write tests for new behavior.
 - Maintain 100% test coverage.
 - Test function docstrings must state the requirement being verified.
-- Private functions must include Google-style docstrings.
+- Every function and class must include a Google-style docstring, including
+  private functions and classes.
 
 ## Quality Checks
 
 Before finishing code changes, run:
 
 ```bash
-uv run ruff check .
-uv run mypy
-uv run pytest
+make check
 ```
+
+Use `make ci` for non-mutating verification and `make check-dist` before
+publishing.
