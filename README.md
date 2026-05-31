@@ -90,6 +90,19 @@ report = Report(
 markdown = report.render()
 ```
 
+## Markdown Linting
+
+MkForge also exposes a markdownlint-inspired diagnostic API.
+
+```python
+from mkforge import lint_markdown
+
+diagnostics = lint_markdown("# Title\n\ntext   \n")
+```
+
+Custom diagnostics can be added with `MarkdownLinter.register_rule()` and
+`FunctionRule`.
+
 ## Relationship With Scribpy
 
 MkForge is intended to be independent from Scribpy.

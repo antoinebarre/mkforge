@@ -1,1 +1,1 @@
-"""Tests for mkforge."""
+"""Test package helpers."""

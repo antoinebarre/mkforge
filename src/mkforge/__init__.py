@@ -20,6 +20,17 @@ from mkforge.errors import (
     ReportDepthError,
 )
 from mkforge.headings import Chapter, Section
+from mkforge.markdown_lint_api import (
+    FunctionRule,
+    MarkdownDiagnostic,
+    MarkdownLintContext,
+    MarkdownRuleRegistry,
+)
+from mkforge.markdown_linter import (
+    MarkdownLinter,
+    lint_markdown,
+    lint_markdown_file,
+)
 
 __all__ = [
     "PROJECT_DESCRIPTION",
@@ -28,11 +39,16 @@ __all__ = [
     "BulletList",
     "Chapter",
     "CodeBlock",
+    "FunctionRule",
     "HorizontalRule",
     "Image",
     "InvalidChildError",
     "InvalidTableError",
     "LineBreak",
+    "MarkdownDiagnostic",
+    "MarkdownLintContext",
+    "MarkdownLinter",
+    "MarkdownRuleRegistry",
     "NumberedList",
     "Paragraph",
     "Report",
@@ -40,4 +56,6 @@ __all__ = [
     "Section",
     "Table",
     "Text",
+    "lint_markdown",
+    "lint_markdown_file",
 ]

@@ -412,3 +412,70 @@ Verification assets:
 | LIM-002 | Duplicate heading anchors are not disambiguated. | Not required for first package scope. |
 | LIM-003 | Markdown content is not escaped. | Caller owns Markdown semantics. |
 | LIM-004 | Image paths are not checked. | Avoids file system side effects during rendering. |
+
+## 19. Markdown Linter Design
+
+The linter is intentionally separate from report rendering. It accepts Markdown
+text, parses lightweight line and heading context, and applies registered rule
+objects.
+
+Primary modules:
+
+| Module | Responsibility |
+|---|---|
+| `markdown_lint_api` | public diagnostic, context, protocol, and function rule contracts |
+| `markdown_lint_registry_api` | mutable rule registry contract |
+| `markdown_linter` | public linter engine and convenience helpers |
+| `markdown_lint_registry` | compact default rule catalog |
+| `markdown_lint_parser` | line and fenced-code state parsing |
+| `markdown_lint_heading_parser` | ATX heading parsing |
+| `markdown_lint_setext_parser` | setext heading parsing |
+| `markdown_lint_*_rules` | focused diagnostic rule families |
+
+```mermaid
+flowchart TD
+    user[Caller] --> linter[MarkdownLinter]
+    linter --> parser[parse_markdown]
+    parser --> context[MarkdownLintContext]
+    linter --> registry[MarkdownRuleRegistry]
+    registry --> rules[MarkdownRule]
+    rules --> diagnostics[MarkdownDiagnostic]
+```
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant Linter
+    participant Parser
+    participant Registry
+    participant Rule
+
+    Caller->>Linter: lint(source, config, disabled)
+    Linter->>Parser: parse_markdown(source, config)
+    Parser-->>Linter: MarkdownLintContext
+    Linter->>Registry: enabled_rules(disabled)
+    loop enabled rules
+        Linter->>Rule: check(context)
+        Rule-->>Linter: diagnostics
+    end
+    Linter-->>Caller: sorted diagnostics
+```
+
+The extension ICD is deliberately small: any object implementing `rule_id`,
+`name`, and `check(context)` can be registered. `FunctionRule` adapts simple
+functions to that protocol.
+
+```mermaid
+classDiagram
+    class MarkdownRule {
+        +str rule_id
+        +str name
+        +check(context) tuple
+    }
+    class FunctionRule
+    class MarkdownRuleRegistry
+    class MarkdownLinter
+    MarkdownLinter --> MarkdownRuleRegistry
+    MarkdownRuleRegistry --> MarkdownRule
+    FunctionRule ..|> MarkdownRule
+```
