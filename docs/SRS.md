@@ -412,13 +412,14 @@ The package shall export these public names from `mkforge`:
 | `InvalidChildError` | exception |
 | `InvalidTableError` | exception |
 | `ReportDepthError` | exception |
-| `MarkdownDiagnostic` | linter diagnostic |
-| `MarkdownLintContext` | linter context |
-| `FunctionRule` | linter extension adapter |
-| `MarkdownRuleRegistry` | linter rule registry |
-| `MarkdownLinter` | linter engine |
-| `lint_markdown` | linter helper |
-| `lint_markdown_file` | linter helper |
+| `Diagnostic` | diagnostic object |
+| `SourceContext` | parsed source context |
+| `FunctionRule` | diagnostic extension adapter |
+| `RuleRegistry` | diagnostic rule registry |
+| `Verifier` | conformance verification engine |
+| `Validator` | content validation engine |
+| `verify` | verification helper |
+| `validate` | validation helper |
 
 ## 15. Requirement Traceability Matrix
 
@@ -442,8 +443,8 @@ The package shall export these public names from `mkforge`:
 | SRS-FR-016 | `markdown.render_report`, `markdown.save_report` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
 | SRS-FR-017 | `table_of_contents.anchor_slug`, `section_numbers.numbered_title` | `tests/test_helpers.py` |
 | SRS-FR-018 | `validation`, `content_validation`, `table_validation`, constructor checks | `tests/test_validation.py` |
-| SRS-FR-019 | `markdown_linter`, `markdown_lint_*` rule modules | `tests/test_markdown_linter*.py` |
-| SRS-FR-020 | `MarkdownRuleRegistry`, `FunctionRule` | `tests/test_markdown_linter_extensions.py` |
+| SRS-FR-019 | `verification`, `validation` | `tests/test_markdown_*.py` |
+| SRS-FR-020 | `RuleRegistry`, `FunctionRule` | `tests/test_markdown_validation.py` |
 | SRS-NFR-001..007 | package and repository checks | `make check`, `demo_report.py`, document review |
 
 ## 16. Open Items
@@ -454,35 +455,36 @@ The package shall export these public names from `mkforge`:
 | OPN-002 | Image file copying is out of scope. | Documented limitation. |
 | OPN-003 | Duplicate heading anchors are not disambiguated. | Candidate future requirement. |
 
-## 17. Markdown Linter Requirements
+## 17. Markdown Diagnostic Requirements
 
-### SRS-FR-019 Markdown Diagnostics
+### SRS-FR-019 Verification and Validation Diagnostics
 
-MkForge shall provide a Markdown linter whose built-in diagnostics cover the
-markdownlint rule identifiers implemented from `Rules.md`.
+MkForge shall provide Markdown diagnostics split by responsibility:
+verification for Markdown/GFM conformance and validation for document content
+policies.
 
 Acceptance criteria:
 
-- `lint_markdown(source)` returns a tuple of `MarkdownDiagnostic`.
-- `lint_markdown_file(path)` reads UTF-8 Markdown and returns diagnostics.
-- Diagnostics include rule id, name, line, column, message, and severity.
-- The default registry exposes diagnostics `MD001`, `MD003`, `MD004`, `MD005`,
-  `MD007`, `MD009`, `MD010`, `MD011`, `MD012`, `MD013`, `MD014`, `MD018`,
-  `MD019`, `MD020`, `MD021`, `MD022`, `MD023`, `MD024`, `MD025`, `MD026`,
-  `MD027`, `MD028`, `MD029`, `MD030`, `MD031`, `MD032`, `MD033`, `MD034`,
-  `MD035`, `MD036`, `MD037`, `MD038`, `MD039`, `MD040`, `MD041`, `MD042`,
-  `MD043`, `MD044`, `MD045`, `MD046`, `MD047`, `MD048`, `MD049`, `MD050`,
-  `MD051`, `MD052`, `MD053`, `MD054`, `MD055`, `MD056`, `MD058`, `MD059`,
-  and `MD060`.
+- `verify(source)` returns conformance diagnostics.
+- `validate(source)` returns content validation diagnostics.
+- File helpers read UTF-8 Markdown and return diagnostics.
+- Diagnostics include rule id, name, category, line, column, message, and
+  severity.
+- Verification rules are grouped under `verification/rules`.
+- Validation rules are grouped under `validation/rules`.
+- Each diagnostic rule is implemented in one Python module.
+- MkForge-owned rule identifiers use `MKVxxx` for base Markdown verification,
+  `MKGxxx` for GitHub Flavored Markdown verification, and `MKCxxx` for
+  content validation.
 
-### SRS-FR-020 Linter Extension ICD
+### SRS-FR-020 Diagnostic Extension ICD
 
 MkForge shall provide a public interface for adding diagnostics.
 
 Acceptance criteria:
 
-- A custom rule can be registered with `MarkdownLinter.register_rule()`.
+- A custom rule can be registered with `RuleRegistry.register()`.
 - Function-backed rules can be adapted with `FunctionRule`.
-- Custom rules receive a `MarkdownLintContext`.
-- Custom rules return `tuple[MarkdownDiagnostic, ...]`.
-- Disabled rule identifiers are excluded from lint execution.
+- Custom rules receive a `SourceContext`.
+- Custom rules return `tuple[Diagnostic, ...]`.
+- Disabled rule identifiers are excluded from execution.

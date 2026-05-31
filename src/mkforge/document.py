@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from mkforge.errors import InvalidChildError
 from mkforge.headings import Chapter, _validate_title
 from mkforge.validation import require_bool, require_metadata
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @dataclass

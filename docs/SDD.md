@@ -413,69 +413,81 @@ Verification assets:
 | LIM-003 | Markdown content is not escaped. | Caller owns Markdown semantics. |
 | LIM-004 | Image paths are not checked. | Avoids file system side effects during rendering. |
 
-## 19. Markdown Linter Design
+## 19. Markdown Diagnostic Design
 
-The linter is intentionally separate from report rendering. It accepts Markdown
-text, parses lightweight line and heading context, and applies registered rule
-objects.
+Markdown diagnostics are intentionally separate from report rendering. Engines
+accept Markdown text, parse lightweight line and heading context, and apply
+registered rule objects.
 
 Primary modules:
 
 | Module | Responsibility |
 |---|---|
-| `markdown_lint_api` | public diagnostic, context, protocol, and function rule contracts |
-| `markdown_lint_registry_api` | mutable rule registry contract |
-| `markdown_linter` | public linter engine and convenience helpers |
-| `markdown_lint_registry` | compact default rule catalog |
-| `markdown_lint_parser` | line and fenced-code state parsing |
-| `markdown_lint_heading_parser` | ATX heading parsing |
-| `markdown_lint_setext_parser` | setext heading parsing |
-| `markdown_lint_*_rules` | focused diagnostic rule families |
+| `diagnostics` | public diagnostic, context, protocol, and registry contracts |
+| `verification` | Markdown/GFM conformance verification engine |
+| `verification.rules.base` | base Markdown conformance diagnostics |
+| `verification.rules.gfm` | GitHub Flavored Markdown diagnostics |
+| `validation` | document content validation engine |
+| `validation.rules` | content and project-policy diagnostics |
 
 ```mermaid
 flowchart TD
-    user[Caller] --> linter[MarkdownLinter]
-    linter --> parser[parse_markdown]
-    parser --> context[MarkdownLintContext]
-    linter --> registry[MarkdownRuleRegistry]
-    registry --> rules[MarkdownRule]
-    rules --> diagnostics[MarkdownDiagnostic]
+    user[Caller] --> verifier[Verifier]
+    user --> validator[Validator]
+    verifier --> parser[parse_markdown]
+    validator --> parser
+    parser --> context[SourceContext]
+    verifier --> registry[RuleRegistry]
+    validator --> registry
+    registry --> rules[Rule]
+    rules --> diagnostics[Diagnostic]
 ```
 
 ```mermaid
 sequenceDiagram
     participant Caller
-    participant Linter
+    participant Engine
     participant Parser
     participant Registry
     participant Rule
 
-    Caller->>Linter: lint(source, config, disabled)
-    Linter->>Parser: parse_markdown(source, config)
-    Parser-->>Linter: MarkdownLintContext
-    Linter->>Registry: enabled_rules(disabled)
+    Caller->>Engine: verify/validate(source, config, disabled)
+    Engine->>Parser: parse_markdown(source, config)
+    Parser-->>Engine: SourceContext
+    Engine->>Registry: enabled_rules(disabled)
     loop enabled rules
-        Linter->>Rule: check(context)
-        Rule-->>Linter: diagnostics
+        Engine->>Rule: check(context)
+        Rule-->>Engine: diagnostics
     end
-    Linter-->>Caller: sorted diagnostics
+    Engine-->>Caller: sorted diagnostics
 ```
 
 The extension ICD is deliberately small: any object implementing `rule_id`,
 `name`, and `check(context)` can be registered. `FunctionRule` adapts simple
-functions to that protocol.
+functions to that protocol. Verification rules check syntax and format;
+validation rules check content, metadata, headings, naming, and local policy.
 
 ```mermaid
 classDiagram
-    class MarkdownRule {
+    class Rule {
         +str rule_id
         +str name
         +check(context) tuple
     }
     class FunctionRule
-    class MarkdownRuleRegistry
-    class MarkdownLinter
-    MarkdownLinter --> MarkdownRuleRegistry
-    MarkdownRuleRegistry --> MarkdownRule
-    FunctionRule ..|> MarkdownRule
+    class RuleRegistry
+    class Verifier
+    class Validator
+    Verifier --> RuleRegistry
+    Validator --> RuleRegistry
+    RuleRegistry --> Rule
+FunctionRule ..|> Rule
 ```
+
+Rule numbering is owned by MkForge rather than markdownlint:
+
+| Prefix | Scope | Example |
+|---|---|---|
+| `MKV` | base Markdown verification | `MKV001` heading increment |
+| `MKG` | GitHub Flavored Markdown verification | `MKG003` table column count |
+| `MKC` | content validation | `MKC010` image alternate text |

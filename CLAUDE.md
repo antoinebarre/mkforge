@@ -14,6 +14,9 @@ These instructions apply to the whole repository.
 - Favor clarity over cleverness.
 - Use precise names for modules, classes, functions, variables, and tests.
 - Keep comments rare and useful.
+- Apply SOLID principles: isolate responsibilities, depend on narrow
+  interfaces, extend through explicit rules or registries, and avoid catch-all
+  modules.
 
 ## Dependencies
 
@@ -28,8 +31,15 @@ These instructions apply to the whole repository.
 
 - Keep changes focused on the requested behavior.
 - Keep public interfaces small.
+- Prefer concrete, short names over abstract framework names.
 - Avoid global mutable state unless there is a clear reason.
 - Prefer deterministic behavior and explicit inputs.
+- Keep diagnostics auditable: one diagnostic rule must live in one Python
+  module, grouped under the relevant `verification/` or `validation/`
+  package, and the module docstring must explain precisely what the rule
+  checks.
+- Avoid Python files that only re-export imports. A module must own behavior,
+  data, or documentation that justifies its existence.
 - Write tests for new behavior.
 - Maintain 100% test coverage.
 - Test function docstrings must state the requirement being verified.

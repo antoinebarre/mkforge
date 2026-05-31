@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from mkforge.document import Report
 from mkforge.markdown_rendering import render_report_blocks
 from mkforge.validation import require_path
-
-if TYPE_CHECKING:
-    from mkforge.document import Report
 
 
 def render_report(report: Report) -> str:

@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
 
+from mkforge.document import Report
 from mkforge.headings import Section
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from mkforge.document import Report
 
 
 def anchor_slug(title: str) -> str:

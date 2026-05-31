@@ -765,79 +765,92 @@ The demo writes `work/demo_report.md` and exercises:
 - code blocks;
 - file saving.
 
-## 13. Markdown Linter API
+## 13. Markdown Diagnostics API
 
-MkForge exposes a markdownlint-inspired diagnostic API for Markdown source
-review.
+MkForge exposes separate APIs for Markdown conformance verification and
+document content validation.
 
 ```python
-from mkforge import MarkdownLinter, lint_markdown
+from mkforge import validate, verify
 
-diagnostics = lint_markdown("# Title\n\ntext   \n")
+verification = verify("# Title\n\ntext   \n")
+validation = validate("# Title?\n")
 ```
 
-Public linter elements:
+Public diagnostic elements:
 
 | Name | Purpose |
 |---|---|
-| `MarkdownDiagnostic` | immutable diagnostic with rule id, line, column, message, and severity |
-| `MarkdownLintContext` | parsed source passed to rules |
+| `Diagnostic` | immutable diagnostic with rule id, category, line, column, message, and severity |
+| `SourceContext` | parsed source passed to rules |
 | `FunctionRule` | adapter for function-backed custom rules |
-| `MarkdownRuleRegistry` | mutable registry for built-in or custom rules |
-| `MarkdownLinter` | configurable linter engine |
-| `lint_markdown` | lint a Markdown string |
-| `lint_markdown_file` | lint a UTF-8 Markdown file |
+| `RuleRegistry` | mutable registry for built-in or custom rules |
+| `Verifier` | Markdown/GFM conformance engine |
+| `verify` | verify a Markdown string |
+| `verify_file` | verify a UTF-8 Markdown file |
+| `Validator` | document content validation engine |
+| `validate` | validate a Markdown string |
+| `validate_file` | validate a UTF-8 Markdown file |
 
 Custom rule example:
 
 ```python
 from mkforge import (
+    Diagnostic,
     FunctionRule,
-    MarkdownDiagnostic,
-    MarkdownLintContext,
-    MarkdownLinter,
+    Validator,
+    RuleRegistry,
+    SourceContext,
 )
 
 
 def check_marker(
-    context: MarkdownLintContext,
-) -> tuple[MarkdownDiagnostic, ...]:
+    context: SourceContext,
+) -> tuple[Diagnostic, ...]:
     """Report a project-specific marker."""
     if "NEEDS_REVIEW" not in context.source:
         return ()
     return (
-        MarkdownDiagnostic(
+        Diagnostic(
             "X001",
             "Custom marker",
             1,
             1,
             "Remove NEEDS_REVIEW marker.",
+            "validation",
         ),
     )
 
 
-linter = MarkdownLinter()
-linter.register_rule(FunctionRule("X001", "Custom marker", check_marker))
-diagnostics = linter.lint("# Title\n\nNEEDS_REVIEW\n")
+registry = RuleRegistry()
+registry.register(FunctionRule("X001", "Custom marker", check_marker))
+validator = Validator(registry)
+diagnostics = validator.validate("# Title\n\nNEEDS_REVIEW\n")
 ```
 
-Built-in diagnostics cover `MD001`, `MD003`, `MD004`, `MD005`, `MD007`,
-`MD009`, `MD010`, `MD011`, `MD012`, `MD013`, `MD014`, `MD018`, `MD019`,
-`MD020`, `MD021`, `MD022`, `MD023`, `MD024`, `MD025`, `MD026`, `MD027`,
-`MD028`, `MD029`, `MD030`, `MD031`, `MD032`, `MD033`, `MD034`, `MD035`,
-`MD036`, `MD037`, `MD038`, `MD039`, `MD040`, `MD041`, `MD042`, `MD043`,
-`MD044`, `MD045`, `MD046`, `MD047`, `MD048`, `MD049`, `MD050`, `MD051`,
-`MD052`, `MD053`, `MD054`, `MD055`, `MD056`, `MD058`, `MD059`, and
-`MD060`.
+Verification diagnostics live under `mkforge.verification.rules`.
+Validation diagnostics live under `mkforge.validation.rules`. Each
+diagnostic has exactly one Python module.
+
+Rule identifiers are MkForge-owned:
+
+| Prefix | Scope |
+|---|---|
+| `MKV001`-`MKV035` | base Markdown verification |
+| `MKG001`-`MKG005` | GitHub Flavored Markdown verification |
+| `MKC001`-`MKC013` | content validation |
 
 ```mermaid
 classDiagram
-    class MarkdownLinter {
-        +register_rule(rule) None
-        +lint(source, config, disabled) tuple
-        +lint_file(path, config, disabled) tuple
+    class Verifier {
+        +verify(source, config, disabled) tuple
+        +verify_file(path, config, disabled) tuple
     }
-    class MarkdownRuleRegistry {
+    class Validator {
+        +validate(source, config, disabled) tuple
+        +validate_file(path, config, disabled) tuple
+    }
+    class RuleRegistry {
         +register(rule) None
         +enabled_rules(disabled) tuple
     }
@@ -846,8 +859,9 @@ classDiagram
         +str name
         +check(context) tuple
     }
-    class MarkdownDiagnostic
-    MarkdownLinter --> MarkdownRuleRegistry
-    MarkdownRuleRegistry --> FunctionRule
-    FunctionRule --> MarkdownDiagnostic
+    class Diagnostic
+    Verifier --> RuleRegistry
+    Validator --> RuleRegistry
+    RuleRegistry --> FunctionRule
+    FunctionRule --> Diagnostic
 ```

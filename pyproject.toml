@@ -53,6 +53,7 @@ line-length = 79
 
 [tool.ruff.lint]
 select = ["ALL"]
+ignore = ["TC001", "TC002", "TC003", "TC004"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
 
+from mkforge.document import Report
 from mkforge.frontmatter import render_metadata
 from mkforge.headings import (
     Chapter,
@@ -13,11 +14,6 @@ from mkforge.headings import (
 from mkforge.markdown_content import render_content
 from mkforge.section_numbers import NumberingContext, numbered_title
 from mkforge.table_of_contents import generate_toc
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from mkforge.document import Report
 
 
 def render_report_blocks(report: Report) -> list[str]:

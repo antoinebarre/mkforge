@@ -13,6 +13,12 @@ from mkforge.content import (
     Table,
     Text,
 )
+from mkforge.diagnostics import (
+    Diagnostic,
+    FunctionRule,
+    RuleRegistry,
+    SourceContext,
+)
 from mkforge.document import Report
 from mkforge.errors import (
     InvalidChildError,
@@ -20,17 +26,8 @@ from mkforge.errors import (
     ReportDepthError,
 )
 from mkforge.headings import Chapter, Section
-from mkforge.markdown_lint_api import (
-    FunctionRule,
-    MarkdownDiagnostic,
-    MarkdownLintContext,
-    MarkdownRuleRegistry,
-)
-from mkforge.markdown_linter import (
-    MarkdownLinter,
-    lint_markdown,
-    lint_markdown_file,
-)
+from mkforge.validation import Validator, validate, validate_file
+from mkforge.verification import Verifier, verify, verify_file
 
 __all__ = [
     "PROJECT_DESCRIPTION",
@@ -39,23 +36,26 @@ __all__ = [
     "BulletList",
     "Chapter",
     "CodeBlock",
+    "Diagnostic",
     "FunctionRule",
     "HorizontalRule",
     "Image",
     "InvalidChildError",
     "InvalidTableError",
     "LineBreak",
-    "MarkdownDiagnostic",
-    "MarkdownLintContext",
-    "MarkdownLinter",
-    "MarkdownRuleRegistry",
     "NumberedList",
     "Paragraph",
     "Report",
     "ReportDepthError",
+    "RuleRegistry",
     "Section",
+    "SourceContext",
     "Table",
     "Text",
-    "lint_markdown",
-    "lint_markdown_file",
+    "Validator",
+    "Verifier",
+    "validate",
+    "validate_file",
+    "verify",
+    "verify_file",
 ]

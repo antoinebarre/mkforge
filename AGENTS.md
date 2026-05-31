@@ -14,6 +14,9 @@ These instructions apply to the whole repository.
 - Prefer explicit, readable, auditable code over clever abstractions.
 - Use clear names and simple control flow.
 - Add comments only when they clarify non-obvious intent or constraints.
+- Apply SOLID principles: isolate responsibilities, depend on narrow
+  interfaces, extend through explicit rules or registries, and avoid catch-all
+  modules.
 
 ## Dependencies
 
@@ -25,11 +28,23 @@ These instructions apply to the whole repository.
 
 ## Design
 
+- Prefer a clean package layout over compatibility with unpublished APIs.
+- Prefer concrete, short names over abstract framework names.
 - Keep public APIs narrow and stable.
 - Avoid hidden side effects.
 - Prefer pure functions for transformation logic.
 - Validate inputs close to the boundary of the system.
 - Make error messages precise and useful.
+- Separate verification from validation:
+  - verification checks Markdown or GitHub Flavored Markdown conformance;
+  - validation checks document content, metadata, required headings, wording,
+    and project-specific policies.
+- Keep diagnostics auditable: one diagnostic rule must live in one Python
+  module, grouped under the relevant `verification/` or `validation/`
+  package, and the module docstring must explain precisely what the rule
+  checks.
+- Avoid Python files that only re-export imports. A module must own behavior,
+  data, or documentation that justifies its existence.
 
 ## Tests and Documentation
 

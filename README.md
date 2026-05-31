@@ -90,18 +90,27 @@ report = Report(
 markdown = report.render()
 ```
 
-## Markdown Linting
+## Markdown Diagnostics
 
-MkForge also exposes a markdownlint-inspired diagnostic API.
+MkForge separates Markdown conformance verification from document content
+validation.
 
 ```python
-from mkforge import lint_markdown
+from mkforge import validate, verify
 
-diagnostics = lint_markdown("# Title\n\ntext   \n")
+verification = verify("# Title\n\ntext   \n")
+validation = validate("# Title?\n")
 ```
 
-Custom diagnostics can be added with `MarkdownLinter.register_rule()` and
-`FunctionRule`.
+Verification covers Markdown and GitHub Flavored Markdown shape rules.
+Validation covers content policies such as document titles, heading structure,
+link wording, image alt text, and project-specific naming.
+Diagnostic identifiers are MkForge-owned: `MKVxxx` for base verification,
+`MKGxxx` for GitHub Flavored Markdown verification, and `MKCxxx` for content
+validation.
+
+Custom diagnostics use the public `RuleRegistry`, `FunctionRule`, `Diagnostic`,
+and `SourceContext` API.
 
 ## Relationship With Scribpy
 
