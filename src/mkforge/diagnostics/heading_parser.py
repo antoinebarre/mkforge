@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from mkforge.diagnostics import Heading, Line
-from mkforge.verification.atx_headings import parse_atx_heading
-from mkforge.verification.setext_headings import parse_setext_heading
+from mkforge.diagnostics.atx_headings import parse_atx_heading
+from mkforge.diagnostics.models import Heading, Line
+from mkforge.diagnostics.setext_headings import parse_setext_heading
 
 
 def parse_headings(lines: tuple[Line, ...]) -> tuple[Heading, ...]:
@@ -34,7 +34,7 @@ def _heading_at(
     Args:
         lines: Parsed source lines.
         index: Zero-based line index.
-        line: One-based source line number.
+        line: Parsed source line to inspect.
 
     Returns:
         Parsed heading, or None when the line is not a heading.

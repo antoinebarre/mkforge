@@ -12,8 +12,8 @@ from __future__ import annotations
 import re
 
 from mkforge.diagnostics import Diagnostic, SourceContext
-from mkforge.verification.profiles import VALIDATION_CATEGORY
-from mkforge.verification.reporting import pattern_diagnostics
+from mkforge.diagnostics.categories import VALIDATION_CATEGORY
+from mkforge.diagnostics.reporting import pattern_diagnostics
 
 RULE_ID = "MKC010"
 NAME = "Images should have alternate text"

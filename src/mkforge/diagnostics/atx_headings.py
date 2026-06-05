@@ -1,7 +1,7 @@
 """Parser for ATX Markdown headings."""
 
-from mkforge.diagnostics import Heading, Line
-from mkforge.verification.patterns import ATX_HEADING_RE
+from mkforge.diagnostics.models import Heading, Line
+from mkforge.diagnostics.patterns import ATX_HEADING_RE
 
 
 def parse_atx_heading(line: Line) -> Heading | None:

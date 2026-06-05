@@ -9,8 +9,8 @@ inconsistent, ambiguous, or outside the selected Markdown/GFM profile.
 import re
 
 from mkforge.diagnostics import Diagnostic, SourceContext
+from mkforge.diagnostics.reporting import diagnostic
 from mkforge.verification.profiles import MARKDOWN_CATEGORY
-from mkforge.verification.reporting import diagnostic
 
 RULE_ID = "MKV008"
 NAME = "Reversed link syntax"

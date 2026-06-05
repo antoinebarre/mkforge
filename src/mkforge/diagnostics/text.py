@@ -2,7 +2,7 @@
 
 import re
 
-from mkforge.verification.patterns import HR_RE, LIST_RE
+from mkforge.diagnostics.patterns import HR_RE, LIST_RE
 
 
 def is_blank(text: str) -> bool:

@@ -1,12 +1,12 @@
-"""Small Markdown parser for verification and validation."""
+"""Small Markdown parser that builds a diagnostic source context."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from mkforge.diagnostics import Line, RuleConfig, SourceContext
-from mkforge.verification.heading_parser import parse_headings
-from mkforge.verification.patterns import FENCE_RE
+from mkforge.diagnostics.heading_parser import parse_headings
+from mkforge.diagnostics.models import Line, RuleConfig, SourceContext
+from mkforge.diagnostics.patterns import FENCE_RE
 
 
 def parse_markdown(
@@ -36,7 +36,7 @@ def _parse_lines(raw_lines: list[str]) -> tuple[Line, ...]:
         raw_lines: Raw Markdown source lines.
 
     Returns:
-        Parse line state for fenced code blocks.
+        Parsed lines with fenced code block state.
     """
     parsed: list[Line] = []
     in_code = False

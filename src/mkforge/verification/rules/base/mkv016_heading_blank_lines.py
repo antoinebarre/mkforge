@@ -7,9 +7,9 @@ inconsistent, ambiguous, or outside the selected Markdown/GFM profile.
 """
 
 from mkforge.diagnostics import Diagnostic, Heading, Line, SourceContext
+from mkforge.diagnostics.reporting import diagnostic
+from mkforge.diagnostics.text import is_blank
 from mkforge.verification.profiles import MARKDOWN_CATEGORY
-from mkforge.verification.reporting import diagnostic
-from mkforge.verification.text import is_blank
 
 RULE_ID = "MKV016"
 NAME = "Blanks around headings"

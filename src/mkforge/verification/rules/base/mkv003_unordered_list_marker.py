@@ -7,9 +7,9 @@ inconsistent, ambiguous, or outside the selected Markdown/GFM profile.
 """
 
 from mkforge.diagnostics import Diagnostic, SourceContext
-from mkforge.verification.patterns import LIST_RE
+from mkforge.diagnostics.patterns import LIST_RE
+from mkforge.diagnostics.reporting import diagnostic
 from mkforge.verification.profiles import MARKDOWN_CATEGORY
-from mkforge.verification.reporting import diagnostic
 
 RULE_ID = "MKV003"
 NAME = "Unordered list style"

@@ -5,14 +5,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
-from mkforge.diagnostics import (
-    Diagnostic,
-    RuleConfig,
-    RuleRegistry,
-    SourceContext,
-)
+from mkforge.diagnostics import Diagnostic, RuleConfig, RuleRegistry
+from mkforge.diagnostics.engine import DiagnosticEngine
+from mkforge.diagnostics.parser import parse_markdown
 from mkforge.validation.registry import validation_rule_registry
-from mkforge.verification.parser import parse_markdown
 
 
 class Validator:
@@ -29,6 +25,7 @@ class Validator:
             registry: Rule registry to use.
         """
         self.registry = registry or validation_rule_registry()
+        self._engine = DiagnosticEngine(self.registry, parse_markdown)
 
     def validate(
         self,
@@ -47,10 +44,7 @@ class Validator:
         Returns:
             Diagnostics emitted by enabled validation rules.
         """
-        context = parse_markdown(source, config)
-        disabled_set = set(disabled or ())
-        diagnostics = _run_rules(self.registry, context, disabled_set)
-        return tuple(sorted(diagnostics, key=_diagnostic_key))
+        return self._engine.run(source, config=config, disabled=disabled)
 
     def validate_file(
         self,
@@ -69,41 +63,7 @@ class Validator:
         Returns:
             Diagnostics emitted for the file.
         """
-        source = Path(path).read_text(encoding="utf-8")
-        return self.validate(source, config=config, disabled=disabled)
-
-
-def _diagnostic_key(diagnostic: Diagnostic) -> tuple[int, int, str]:
-    """Return the stable diagnostic sort key.
-
-    Args:
-        diagnostic: Diagnostic to inspect.
-
-    Returns:
-        The stable diagnostic sort key.
-    """
-    return (diagnostic.line, diagnostic.column, diagnostic.rule_id)
-
-
-def _run_rules(
-    registry: RuleRegistry,
-    context: SourceContext,
-    disabled: set[str],
-) -> list[Diagnostic]:
-    """Run enabled rules and collect diagnostics.
-
-    Args:
-        registry: Rule registry to use.
-        context: Parsed source context and rule configuration.
-        disabled: Rule identifiers to skip.
-
-    Returns:
-        Run enabled rules and collect diagnostics.
-    """
-    diagnostics: list[Diagnostic] = []
-    for rule in registry.enabled_rules(disabled):
-        diagnostics.extend(rule.check(context))
-    return diagnostics
+        return self._engine.run_file(path, config=config, disabled=disabled)
 
 
 def validate(
@@ -122,8 +82,7 @@ def validate(
     Returns:
         Diagnostics emitted by enabled validation rules.
     """
-    validator = Validator()
-    return validator.validate(source, config=config, disabled=disabled)
+    return Validator().validate(source, config=config, disabled=disabled)
 
 
 def validate_file(
@@ -142,5 +101,4 @@ def validate_file(
     Returns:
         Diagnostics emitted for the file.
     """
-    validator = Validator()
-    return validator.validate_file(path, config=config, disabled=disabled)
+    return Validator().validate_file(path, config=config, disabled=disabled)

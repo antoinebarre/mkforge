@@ -12,9 +12,9 @@ from __future__ import annotations
 import re
 
 from mkforge.diagnostics import Diagnostic, SourceContext
+from mkforge.diagnostics.categories import VALIDATION_CATEGORY
+from mkforge.diagnostics.reporting import diagnostic
 from mkforge.verification.anchors import heading_slugs, line_for_offset
-from mkforge.verification.profiles import VALIDATION_CATEGORY
-from mkforge.verification.reporting import diagnostic
 
 RULE_ID = "MKC011"
 NAME = "Link fragments"

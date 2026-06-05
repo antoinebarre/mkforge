@@ -9,10 +9,10 @@ inconsistent, ambiguous, or outside the selected Markdown/GFM profile.
 from __future__ import annotations
 
 from mkforge.diagnostics import Diagnostic, Line, SourceContext
+from mkforge.diagnostics.reporting import diagnostic
+from mkforge.diagnostics.text import is_blank
 from mkforge.verification.profiles import GFM_CATEGORY
-from mkforge.verification.reporting import diagnostic
 from mkforge.verification.tables import is_table_line
-from mkforge.verification.text import is_blank
 
 RULE_ID = "MKG004"
 NAME = "Blanks around tables"

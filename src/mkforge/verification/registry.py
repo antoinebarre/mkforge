@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from importlib import import_module
-
-from mkforge.diagnostics import FunctionRule, RuleRegistry
+from mkforge.diagnostics.loader import load_rules
+from mkforge.diagnostics.rules import RuleRegistry
 from mkforge.verification.profiles import (
     ALL_PROFILES,
     GFM_PROFILE,
@@ -67,12 +66,7 @@ def verification_rule_registry(profile: str = GFM_PROFILE) -> RuleRegistry:
     Returns:
         A registry for the requested verification profile.
     """
-    registry = RuleRegistry()
-    for module_name in _module_names(profile):
-        module = import_module(module_name)
-        rule = FunctionRule(module.RULE_ID, module.NAME, module.check)
-        registry.register(rule)
-    return registry
+    return load_rules(_module_names(profile))
 
 
 def _module_names(profile: str) -> tuple[str, ...]:

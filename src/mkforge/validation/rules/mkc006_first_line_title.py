@@ -10,9 +10,9 @@ policy.
 from __future__ import annotations
 
 from mkforge.diagnostics import Diagnostic, SourceContext
-from mkforge.verification.profiles import VALIDATION_CATEGORY
-from mkforge.verification.reporting import diagnostic
-from mkforge.verification.text import is_blank
+from mkforge.diagnostics.categories import VALIDATION_CATEGORY
+from mkforge.diagnostics.reporting import diagnostic
+from mkforge.diagnostics.text import is_blank
 
 RULE_ID = "MKC006"
 NAME = "First line heading"

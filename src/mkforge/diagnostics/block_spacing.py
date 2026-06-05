@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from mkforge.diagnostics import Diagnostic, Line, SourceContext
-from mkforge.verification.reporting import diagnostic
-from mkforge.verification.text import is_blank
+from mkforge.diagnostics.models import Diagnostic, Line, SourceContext
+from mkforge.diagnostics.reporting import diagnostic
+from mkforge.diagnostics.text import is_blank
 
 _BLANK_MESSAGE = "Surround block with blank lines."
 

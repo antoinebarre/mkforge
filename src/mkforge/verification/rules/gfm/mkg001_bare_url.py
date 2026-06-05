@@ -9,9 +9,9 @@ inconsistent, ambiguous, or outside the selected Markdown/GFM profile.
 import re
 
 from mkforge.diagnostics import Diagnostic, SourceContext
+from mkforge.diagnostics.reporting import line_diagnostics
+from mkforge.diagnostics.text import visible_text
 from mkforge.verification.profiles import GFM_CATEGORY
-from mkforge.verification.reporting import line_diagnostics
-from mkforge.verification.text import visible_text
 
 RULE_ID = "MKG001"
 NAME = "Bare URL"

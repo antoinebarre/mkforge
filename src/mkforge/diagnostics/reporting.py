@@ -3,7 +3,7 @@
 import re
 from collections.abc import Callable
 
-from mkforge.diagnostics import Diagnostic, Line, SourceContext
+from mkforge.diagnostics.models import Diagnostic, Line, SourceContext
 
 
 def diagnostic(

@@ -12,9 +12,9 @@ from __future__ import annotations
 import re
 
 from mkforge.diagnostics import Diagnostic, SourceContext
-from mkforge.verification.config import string_items
-from mkforge.verification.profiles import VALIDATION_CATEGORY
-from mkforge.verification.reporting import diagnostic
+from mkforge.diagnostics.categories import VALIDATION_CATEGORY
+from mkforge.diagnostics.config import string_items
+from mkforge.diagnostics.reporting import diagnostic
 
 RULE_ID = "MKC009"
 NAME = "Proper names"

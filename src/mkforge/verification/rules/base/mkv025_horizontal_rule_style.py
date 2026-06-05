@@ -9,9 +9,9 @@ inconsistent, ambiguous, or outside the selected Markdown/GFM profile.
 from __future__ import annotations
 
 from mkforge.diagnostics import Diagnostic, SourceContext
+from mkforge.diagnostics.reporting import diagnostic
+from mkforge.diagnostics.text import is_horizontal_rule
 from mkforge.verification.profiles import MARKDOWN_CATEGORY
-from mkforge.verification.reporting import diagnostic
-from mkforge.verification.text import is_horizontal_rule
 
 RULE_ID = "MKV025"
 NAME = "Horizontal rule style"

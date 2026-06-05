@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from importlib import import_module
-
-from mkforge.diagnostics import FunctionRule, RuleRegistry
+from mkforge.diagnostics.loader import load_rules
+from mkforge.diagnostics.rules import RuleRegistry
 
 VALIDATION_RULES = (
     "mkc001_duplicate_headings",
@@ -29,12 +28,7 @@ def validation_rule_registry() -> RuleRegistry:
     Returns:
         The default Markdown content validation registry.
     """
-    registry = RuleRegistry()
-    for module_name in _module_names():
-        module = import_module(module_name)
-        rule = FunctionRule(module.RULE_ID, module.NAME, module.check)
-        registry.register(rule)
-    return registry
+    return load_rules(_module_names())
 
 
 def _module_names() -> tuple[str, ...]:

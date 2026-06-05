@@ -7,9 +7,9 @@ inconsistent, ambiguous, or outside the selected Markdown/GFM profile.
 """
 
 from mkforge.diagnostics import Diagnostic, SourceContext
+from mkforge.diagnostics.reporting import diagnostic
+from mkforge.diagnostics.text import is_blank
 from mkforge.verification.profiles import MARKDOWN_CATEGORY
-from mkforge.verification.reporting import diagnostic
-from mkforge.verification.text import is_blank
 
 RULE_ID = "MKV009"
 NAME = "Multiple blank lines"

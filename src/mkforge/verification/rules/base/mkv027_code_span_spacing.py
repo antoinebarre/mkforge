@@ -11,8 +11,8 @@ from __future__ import annotations
 import re
 
 from mkforge.diagnostics import Diagnostic, SourceContext
+from mkforge.diagnostics.reporting import pattern_diagnostics
 from mkforge.verification.profiles import MARKDOWN_CATEGORY
-from mkforge.verification.reporting import pattern_diagnostics
 
 RULE_ID = "MKV027"
 NAME = "Spaces inside code span"

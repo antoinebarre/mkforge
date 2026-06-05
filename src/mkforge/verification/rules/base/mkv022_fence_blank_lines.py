@@ -9,11 +9,11 @@ inconsistent, ambiguous, or outside the selected Markdown/GFM profile.
 from __future__ import annotations
 
 from mkforge.diagnostics import Diagnostic, SourceContext
-from mkforge.verification.block_spacing import (
+from mkforge.diagnostics.block_spacing import (
     block_spacing_diagnostics,
 )
+from mkforge.diagnostics.text import is_fence
 from mkforge.verification.profiles import MARKDOWN_CATEGORY
-from mkforge.verification.text import is_fence
 
 RULE_ID = "MKV022"
 NAME = "Blanks around fences"

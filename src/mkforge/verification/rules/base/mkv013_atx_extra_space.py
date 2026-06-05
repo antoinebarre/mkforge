@@ -9,8 +9,8 @@ inconsistent, ambiguous, or outside the selected Markdown/GFM profile.
 import re
 
 from mkforge.diagnostics import Diagnostic, SourceContext
+from mkforge.diagnostics.reporting import pattern_diagnostics
 from mkforge.verification.profiles import MARKDOWN_CATEGORY
-from mkforge.verification.reporting import pattern_diagnostics
 
 RULE_ID = "MKV013"
 NAME = "Multiple spaces after hash"

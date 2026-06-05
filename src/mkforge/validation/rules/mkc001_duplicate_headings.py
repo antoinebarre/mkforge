@@ -10,8 +10,8 @@ policy.
 from __future__ import annotations
 
 from mkforge.diagnostics import Diagnostic, SourceContext
-from mkforge.verification.profiles import VALIDATION_CATEGORY
-from mkforge.verification.reporting import diagnostic
+from mkforge.diagnostics.categories import VALIDATION_CATEGORY
+from mkforge.diagnostics.reporting import diagnostic
 
 RULE_ID = "MKC001"
 NAME = "Duplicate headings"

@@ -1,6 +1,6 @@
 """Parser for setext Markdown headings."""
 
-from mkforge.diagnostics import Heading, Line
+from mkforge.diagnostics.models import Heading, Line
 
 SETEXT_H2_MIN_LENGTH = 3
 
