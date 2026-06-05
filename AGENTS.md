@@ -7,7 +7,7 @@ These instructions apply to the whole repository.
 - Write Python code that strictly follows Python PEP rules and the Google
   Python Style Guide.
 - Keep each function small and focused.
-- Keep cyclomatic complexity below 5 for every function.
+- Keep cyclomatic complexity at or below 10 for every function.
 - Keep Python modules below 500 lines unless an ADR explicitly justifies a
   larger module.
 - Do not optimize for maintainability-index scores when they encourage

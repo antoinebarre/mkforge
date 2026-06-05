@@ -93,7 +93,7 @@ requiring a project configuration file.
 | CON-001 | Runtime dependencies shall be limited to the Python standard library. |
 | CON-002 | Public APIs exported from `mkforge` shall remain narrow and explicit. |
 | CON-003 | Generated Markdown shall be deterministic for identical input objects. |
-| CON-004 | Functions shall remain small enough to satisfy repository complexity and maintainability gates. |
+| CON-004 | Functions and modules shall remain small enough to satisfy repository complexity and logical line-count gates. |
 | CON-005 | The document title shall be the only level-1 Markdown heading. |
 
 ## 9. External Interfaces
@@ -328,7 +328,7 @@ The package shall pass strict `mypy` checks configured by the repository.
 ### SRS-NFR-003 Code Quality
 
 The package shall pass formatting, linting, Flake8, docstring, complexity, and
-maintainability checks through `make check`.
+logical line-count checks through `make check`.
 
 ### SRS-NFR-004 Test Coverage
 

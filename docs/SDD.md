@@ -376,7 +376,7 @@ Verification assets:
 - Flake8;
 - docstring policy;
 - Mypy;
-- complexity and maintainability metrics;
+- cyclomatic complexity and logical line-count metrics;
 - Bandit;
 - dependency audit;
 - Pytest with 100% coverage.
