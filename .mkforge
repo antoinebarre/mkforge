@@ -1,0 +1,67 @@
+[verification]
+disabled = []
+
+[verification.rules.MD001]
+front_matter_title = "^\\s*title\\s*[:=]"
+
+[verification.rules.MD002]
+level = 1
+front_matter_title = "^\\s*title\\s*[:=]"
+
+[verification.rules.MD003]
+style = "consistent"
+
+[verification.rules.MD004]
+style = "consistent"
+
+[verification.rules.MD007]
+indent = 3
+
+[verification.rules.MD009]
+br_spaces = 2
+
+[verification.rules.MD010]
+ignore_code_blocks = false
+
+[verification.rules.MD013]
+line_length = 80
+ignore_code_blocks = false
+code_blocks = true
+tables = true
+headings = true
+treat_links_as_single_words = false
+
+[verification.rules.MD024]
+allow_different_nesting = false
+
+[verification.rules.MD025]
+level = 1
+front_matter_title = "^\\s*title\\s*[:=]"
+
+[verification.rules.MD026]
+punctuation = ".,;:!?"
+
+[verification.rules.MD029]
+style = "one"
+
+[verification.rules.MD030]
+ul_single = 1
+ol_single = 1
+ul_multi = 1
+ol_multi = 1
+
+[verification.rules.MD033]
+allowed_elements = ""
+
+[verification.rules.MD035]
+style = "consistent"
+
+[verification.rules.MD036]
+punctuation = ".,;:!?"
+
+[verification.rules.MD041]
+level = 1
+front_matter_title = "^\\s*title\\s*[:=]"
+
+[verification.rules.MD046]
+style = "fenced"

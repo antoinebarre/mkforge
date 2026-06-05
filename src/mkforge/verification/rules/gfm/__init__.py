@@ -1,1 +1,1 @@
-"""GitHub Flavored Markdown conformance diagnostics."""
+"""GitHub Flavored Markdown conformance rule modules."""

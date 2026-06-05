@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from mkforge.document import Report
+from mkforge.input_checks import require_path
 from mkforge.markdown_rendering import render_report_blocks
-from mkforge.validation import require_path
 
 
 def render_report(report: Report) -> str:

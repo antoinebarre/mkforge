@@ -413,13 +413,9 @@ The package shall export these public names from `mkforge`:
 | `InvalidTableError` | exception |
 | `ReportDepthError` | exception |
 | `Diagnostic` | diagnostic object |
-| `SourceContext` | parsed source context |
-| `FunctionRule` | diagnostic extension adapter |
-| `RuleRegistry` | diagnostic rule registry |
-| `Verifier` | conformance verification engine |
-| `Validator` | content validation engine |
-| `verify` | verification helper |
-| `validate` | validation helper |
+| `MarkdownSource` | verification source context |
+| `VerificationReport` | verification result |
+| `verify_markdown` | verification helper |
 
 ## 15. Requirement Traceability Matrix
 
@@ -443,8 +439,8 @@ The package shall export these public names from `mkforge`:
 | SRS-FR-016 | `markdown.render_report`, `markdown.save_report` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
 | SRS-FR-017 | `table_of_contents.anchor_slug`, `section_numbers.numbered_title` | `tests/test_helpers.py` |
 | SRS-FR-018 | `validation`, `content_validation`, `table_validation`, constructor checks | `tests/test_validation.py` |
-| SRS-FR-019 | `verification`, `validation` | `tests/test_markdown_*.py` |
-| SRS-FR-020 | `RuleRegistry`, `FunctionRule` | `tests/test_markdown_validation.py` |
+| SRS-FR-019 | `verification` | `tests/test_markdown_verification.py` |
+| SRS-FR-020 | `MarkdownRule`, `VerificationSettings` | `tests/test_markdown_verification.py` |
 | SRS-NFR-001..007 | package and repository checks | `make check`, `demo_report.py`, document review |
 
 ## 16. Open Items
@@ -455,36 +451,33 @@ The package shall export these public names from `mkforge`:
 | OPN-002 | Image file copying is out of scope. | Documented limitation. |
 | OPN-003 | Duplicate heading anchors are not disambiguated. | Candidate future requirement. |
 
-## 17. Markdown Diagnostic Requirements
+## 17. Markdown Verification Requirements
 
-### SRS-FR-019 Verification and Validation Diagnostics
+### SRS-FR-019 Verification Diagnostics
 
-MkForge shall provide Markdown diagnostics split by responsibility:
-verification for Markdown/GFM conformance and validation for document content
-policies.
+MkForge shall provide Markdown diagnostics for Markdown and GFM conformance in
+one merged verification pass.
 
 Acceptance criteria:
 
-- `verify(source)` returns conformance diagnostics.
-- `validate(source)` returns content validation diagnostics.
+- `verify_markdown(source)` returns a verification report using the merged
+  Markdown/GFM policy.
 - File helpers read UTF-8 Markdown and return diagnostics.
 - Diagnostics include rule id, name, category, line, column, message, and
   severity.
 - Verification rules are grouped under `verification/rules`.
-- Validation rules are grouped under `validation/rules`.
 - Each diagnostic rule is implemented in one Python module.
-- MkForge-owned rule identifiers use `MKVxxx` for base Markdown verification,
-  `MKGxxx` for GitHub Flavored Markdown verification, and `MKCxxx` for
-  content validation.
+- Rule identifiers use `MDxxx` for markdownlint-compatible compliance checks,
+  `GFMxxx` for GitHub Flavored Markdown checks, and `MKFxxx` for
+  MkForge-specific checks.
 
-### SRS-FR-020 Diagnostic Extension ICD
+### SRS-FR-020 Verification Extension ICD
 
-MkForge shall provide a public interface for adding diagnostics.
+MkForge shall provide a public interface for adding verification rules.
 
 Acceptance criteria:
 
-- A custom rule can be registered with `RuleRegistry.register()`.
-- Function-backed rules can be adapted with `FunctionRule`.
-- Custom rules receive a `SourceContext`.
+- A custom rule can be passed to `verify_markdown`.
+- Custom rules receive a `MarkdownSource`.
 - Custom rules return `tuple[Diagnostic, ...]`.
-- Disabled rule identifiers are excluded from execution.
+- Custom rules run after built-in verification rules.

@@ -13,12 +13,6 @@ from mkforge.content import (
     Table,
     Text,
 )
-from mkforge.diagnostics import (
-    Diagnostic,
-    FunctionRule,
-    RuleRegistry,
-    SourceContext,
-)
 from mkforge.document import Report
 from mkforge.errors import (
     InvalidChildError,
@@ -26,8 +20,16 @@ from mkforge.errors import (
     ReportDepthError,
 )
 from mkforge.headings import Chapter, Section
-from mkforge.validation import Validator, validate, validate_file
-from mkforge.verification import Verifier, verify, verify_file
+from mkforge.verification import (
+    Diagnostic,
+    MarkdownLine,
+    MarkdownRule,
+    MarkdownSource,
+    VerificationReport,
+    VerificationSettings,
+    verify_markdown,
+    verify_markdown_file,
+)
 
 __all__ = [
     "PROJECT_DESCRIPTION",
@@ -37,25 +39,23 @@ __all__ = [
     "Chapter",
     "CodeBlock",
     "Diagnostic",
-    "FunctionRule",
     "HorizontalRule",
     "Image",
     "InvalidChildError",
     "InvalidTableError",
     "LineBreak",
+    "MarkdownLine",
+    "MarkdownRule",
+    "MarkdownSource",
     "NumberedList",
     "Paragraph",
     "Report",
     "ReportDepthError",
-    "RuleRegistry",
     "Section",
-    "SourceContext",
     "Table",
     "Text",
-    "Validator",
-    "Verifier",
-    "validate",
-    "validate_file",
-    "verify",
-    "verify_file",
+    "VerificationReport",
+    "VerificationSettings",
+    "verify_markdown",
+    "verify_markdown_file",
 ]

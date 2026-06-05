@@ -90,27 +90,17 @@ report = Report(
 markdown = report.render()
 ```
 
-## Markdown Diagnostics
-
-MkForge separates Markdown conformance verification from document content
-validation.
+## Markdown Verification
 
 ```python
-from mkforge import validate, verify
+from mkforge import verify_markdown
 
-verification = verify("# Title\n\ntext   \n")
-validation = validate("# Title?\n")
+report = verify_markdown("# Title\n\n| A | B |\n| --- | --- |\n")
 ```
 
-Verification covers Markdown and GitHub Flavored Markdown shape rules.
-Validation covers content policies such as document titles, heading structure,
-link wording, image alt text, and project-specific naming.
-Diagnostic identifiers are MkForge-owned: `MKVxxx` for base verification,
-`MKGxxx` for GitHub Flavored Markdown verification, and `MKCxxx` for content
-validation.
-
-Custom diagnostics use the public `RuleRegistry`, `FunctionRule`, `Diagnostic`,
-and `SourceContext` API.
+Verification covers pure Markdown and GitHub Flavored Markdown conformance in a
+single pass. Custom rule callables can be appended for one verification call
+without mutating the built-in policy.
 
 ## Relationship With Scribpy
 

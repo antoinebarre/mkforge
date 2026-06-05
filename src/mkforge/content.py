@@ -9,8 +9,8 @@ from mkforge.content_validation import (
     validate_paragraph_content,
     validate_text_style,
 )
+from mkforge.input_checks import require_string
 from mkforge.table_validation import validate_items, validate_table
-from mkforge.validation import require_string
 
 TextStyle = Literal["plain", "bold", "italic", "code", "strikethrough"]
 

@@ -1,1 +1,0 @@
-"""Common Markdown conformance diagnostics."""

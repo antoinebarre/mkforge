@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from mkforge.content import CONTENT_TYPES, ContentElement
 from mkforge.errors import InvalidChildError, ReportDepthError
-from mkforge.validation import require_string
+from mkforge.input_checks import require_string
 
 MAX_HEADING_LEVEL = 6
 _SECTION_BASE_LEVEL = 3

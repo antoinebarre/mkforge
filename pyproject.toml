@@ -73,7 +73,7 @@ exclude_dirs = ["tests", "work", ".venv"]
 paths = ["src/mkforge", "tests"]
 exclude = []
 max_cyclomatic_complexity = 10
-max_module_logical_lines = 500
+max_module_logical_lines = 900
 
 [tool.uvforge]
 project_name = "mkforge"

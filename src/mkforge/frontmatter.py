@@ -1,6 +1,6 @@
 """Markdown frontmatter rendering helpers."""
 
-from mkforge.validation import require_metadata, require_string
+from mkforge.input_checks import require_metadata, require_string
 
 
 def render_metadata(metadata: dict[str, object]) -> str:

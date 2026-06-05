@@ -1,103 +1,76 @@
-"""Default Markdown verification rule registry."""
+"""Markdown conformance policy registry.
+
+This module assembles the built-in Markdown and GFM conformance policy from
+rule modules. It is the single place that couples the rule registry to the
+policy type, keeping policy.py free of concrete rule dependencies.
+"""
 
 from __future__ import annotations
 
-from mkforge.diagnostics.loader import load_rules
-from mkforge.diagnostics.rules import RuleRegistry
-from mkforge.verification.profiles import (
-    ALL_PROFILES,
-    GFM_PROFILE,
-    MARKDOWN_PROFILE,
+from mkforge.verification.policy import (
+    MarkdownPolicy,
+    MarkdownRule,
 )
-
-MARKDOWN_RULES = (
-    "mkv001_heading_increment",
-    "mkv002_heading_style",
-    "mkv003_unordered_list_marker",
-    "mkv004_list_indentation",
-    "mkv005_unordered_list_indent_size",
-    "mkv006_trailing_spaces",
-    "mkv007_tabs",
-    "mkv008_reversed_link",
-    "mkv009_multiple_blank_lines",
-    "mkv010_line_length",
-    "mkv011_command_prompt",
-    "mkv012_atx_missing_space",
-    "mkv013_atx_extra_space",
-    "mkv014_closed_atx_missing_space",
-    "mkv015_closed_atx_extra_space",
-    "mkv016_heading_blank_lines",
-    "mkv017_indented_heading",
-    "mkv018_blockquote_marker_spacing",
-    "mkv019_blockquote_blank_line",
-    "mkv020_ordered_list_sequence",
-    "mkv021_list_marker_spacing",
-    "mkv022_fence_blank_lines",
-    "mkv023_list_blank_lines",
-    "mkv024_inline_html",
-    "mkv025_horizontal_rule_style",
-    "mkv026_emphasis_spacing",
-    "mkv027_code_span_spacing",
-    "mkv028_link_text_spacing",
-    "mkv029_code_block_style",
-    "mkv030_trailing_newline",
-    "mkv031_fence_style",
-    "mkv032_emphasis_style",
-    "mkv033_strong_style",
-    "mkv034_reference_defined",
-    "mkv035_reference_used",
+from mkforge.verification.rules.gfm import (
+    gfm001_table_delimiter,
+    gfm002_table_column_count,
+    gfm003_task_list_marker,
 )
-
-GFM_RULES = (
-    "mkg001_bare_url",
-    "mkg002_table_pipe_style",
-    "mkg003_table_column_count",
-    "mkg004_table_blank_lines",
-    "mkg005_table_column_spacing",
+from mkforge.verification.rules.markdown import (
+    markdownlint_remaining,
+    md011_reversed_link_syntax,
+    md018_atx_heading_space,
+    md020_closed_atx_heading_space,
+    md034_bare_url,
+    md037_emphasis_marker_space,
+    md038_code_span_space,
+    md039_link_text_space,
+    mkf001_local_resource_exists,
 )
 
 
-def verification_rule_registry(profile: str = GFM_PROFILE) -> RuleRegistry:
-    """Return a registry for the requested verification profile.
-
-    Args:
-        profile: Verification profile name.
+def markdown_compliance_policy() -> MarkdownPolicy:
+    """Return the merged Markdown and GFM conformance policy.
 
     Returns:
-        A registry for the requested verification profile.
+        Policy containing all built-in conformance rules.
     """
-    return load_rules(_module_names(profile))
+    return MarkdownPolicy(
+        name="markdown-compliance",
+        rules=(*_markdown_rules(), *_gfm_rules()),
+    )
 
 
-def _module_names(profile: str) -> tuple[str, ...]:
-    """Return diagnostic module names for a profile.
-
-    Args:
-        profile: Verification profile name.
+def _markdown_rules() -> tuple[MarkdownRule, ...]:
+    """Return classic Markdown conformance rule callables.
 
     Returns:
-        Diagnostic module names for a profile.
+        Classic Markdown rule callables.
     """
-    if profile == MARKDOWN_PROFILE:
-        return _qualified("base", MARKDOWN_RULES)
-    if profile in {GFM_PROFILE, ALL_PROFILES}:
-        return (
-            *_qualified("base", MARKDOWN_RULES),
-            *_qualified("gfm", GFM_RULES),
-        )
-    message = f"unknown Markdown verification profile: {profile!r}."
-    raise ValueError(message)
+    return (
+        markdownlint_remaining.check,
+        md011_reversed_link_syntax.check,
+        md018_atx_heading_space.check,
+        md020_closed_atx_heading_space.check,
+        md034_bare_url.check,
+        md037_emphasis_marker_space.check,
+        md038_code_span_space.check,
+        md039_link_text_space.check,
+        mkf001_local_resource_exists.check,
+    )
 
 
-def _qualified(group: str, names: tuple[str, ...]) -> tuple[str, ...]:
-    """Return fully qualified rule module names.
-
-    Args:
-        group: Rule group package name.
-        names: Rule module names.
+def _gfm_rules() -> tuple[MarkdownRule, ...]:
+    """Return GitHub Flavored Markdown conformance rule callables.
 
     Returns:
-        Fully qualified rule module names.
+        GFM rule callables.
     """
-    prefix = f"mkforge.verification.rules.{group}"
-    return tuple(f"{prefix}.{name}" for name in names)
+    return (
+        gfm001_table_delimiter.check,
+        gfm002_table_column_count.check,
+        gfm003_task_list_marker.check,
+    )
+
+
+MARKDOWN_COMPLIANCE = markdown_compliance_policy()

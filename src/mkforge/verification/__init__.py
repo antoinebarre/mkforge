@@ -1,12 +1,25 @@
-"""Source conformance verification tools."""
+"""Markdown conformance verification tools."""
 
-from mkforge.verification.engine import Verifier
-from mkforge.verification.functions import verify, verify_file
-from mkforge.verification.registry import verification_rule_registry
+from mkforge.verification.api import (
+    VerificationReport,
+    verify_markdown,
+    verify_markdown_file,
+)
+from mkforge.verification.policy import (
+    Diagnostic,
+    MarkdownLine,
+    MarkdownRule,
+    MarkdownSource,
+)
+from mkforge.verification.settings import VerificationSettings
 
 __all__ = [
-    "Verifier",
-    "verification_rule_registry",
-    "verify",
-    "verify_file",
+    "Diagnostic",
+    "MarkdownLine",
+    "MarkdownRule",
+    "MarkdownSource",
+    "VerificationReport",
+    "VerificationSettings",
+    "verify_markdown",
+    "verify_markdown_file",
 ]

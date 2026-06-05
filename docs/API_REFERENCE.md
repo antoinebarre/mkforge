@@ -6,14 +6,23 @@ This reference documents every supported MkForge API surface, including public
 classes, public exceptions, module-level helpers, complete examples, and UML
 diagrams.
 
-The full runnable demonstration is `demo_report.py`.
+Runnable demonstrations: `demo_report.py` (report generation), `demo_verif.py`
+(Markdown verification).
 
 ## 2. Import Model
 
 Preferred user imports:
 
 ```python
-from mkforge import Chapter, Paragraph, Report, Section, Table
+from mkforge import (
+    Chapter,
+    Paragraph,
+    Report,
+    Section,
+    Table,
+    verify_markdown,
+    verify_markdown_file,
+)
 ```
 
 Advanced helper imports:
@@ -22,6 +31,19 @@ Advanced helper imports:
 from mkforge.markdown import render_report, save_report
 from mkforge.section_numbers import NumberingContext, numbered_title
 from mkforge.table_of_contents import anchor_slug, generate_toc
+```
+
+Verification-specific imports (all re-exported from `mkforge`):
+
+```python
+from mkforge import (
+    Diagnostic,
+    MarkdownLine,
+    MarkdownRule,
+    MarkdownSource,
+    VerificationReport,
+    VerificationSettings,
+)
 ```
 
 ## 3. Complete Minimal Example
@@ -56,7 +78,9 @@ Rendered heading hierarchy:
 ### 1.1. Status
 ```
 
-## 4. Public Classes
+---
+
+## 4. Public Classes — Report Generation
 
 ### 4.1 `Report`
 
@@ -80,31 +104,31 @@ Attributes:
 
 | Attribute | Type | Description |
 |---|---|---|
-| `title` | `str` | document title rendered as the only H1 |
-| `children` | `list[Chapter]` | ordered chapters |
-| `metadata` | `dict[str, object] | None` | optional frontmatter dictionary |
-| `toc` | `bool` | whether to render a table of contents |
-| `auto_numbering` | `bool` | whether to number chapters and sections |
+| `title` | `str` | Document title rendered as the only H1 |
+| `children` | `list[Chapter]` | Ordered chapters |
+| `metadata` | `dict[str, object] | None` | Optional frontmatter dictionary |
+| `toc` | `bool` | Whether to render a table of contents |
+| `auto_numbering` | `bool` | Whether to number chapters and sections |
 
 Methods:
 
 | Method | Returns | Description |
 |---|---|---|
-| `add(*items: Chapter)` | `Report` | appends chapters and returns self |
-| `render()` | `str` | renders Markdown |
-| `save(path)` | `None` | writes Markdown to UTF-8 file |
+| `add(*items: Chapter)` | `Report` | Appends chapters and returns self |
+| `render()` | `str` | Renders full Markdown document |
+| `save(path)` | `None` | Writes Markdown to a UTF-8 file |
 
 Raises:
 
 | Condition | Exception |
 |---|---|
-| blank title | `ValueError` |
-| non-string title | `TypeError` |
-| non-dict metadata | `TypeError` |
-| non-string metadata key | `TypeError` |
-| non-bool `toc` or `auto_numbering` | `TypeError` |
-| invalid initial children collection | `TypeError` |
-| non-chapter passed to `add()` | `InvalidChildError` |
+| Blank title | `ValueError` |
+| Non-string title | `TypeError` |
+| Non-dict metadata | `TypeError` |
+| Non-string metadata key | `TypeError` |
+| Non-bool `toc` or `auto_numbering` | `TypeError` |
+| Invalid initial children collection | `TypeError` |
+| Non-chapter passed to `add()` | `InvalidChildError` |
 
 Example:
 
@@ -126,6 +150,8 @@ report = Report(
     Chapter("Overview"),
 )
 ```
+
+---
 
 ### 4.2 `Chapter`
 
@@ -149,16 +175,16 @@ Methods:
 
 | Method | Returns | Description |
 |---|---|---|
-| `add(*items)` | `Chapter` | appends sections or content and returns self |
+| `add(*items)` | `Chapter` | Appends sections or content and returns self |
 
 Raises:
 
 | Condition | Exception |
 |---|---|
-| blank title | `ValueError` |
-| non-string title | `TypeError` |
-| invalid initial children collection | `TypeError` |
-| unsupported child | `InvalidChildError` |
+| Blank title | `ValueError` |
+| Non-string title | `TypeError` |
+| Invalid initial children collection | `TypeError` |
+| Unsupported child | `InvalidChildError` |
 
 Example:
 
@@ -169,6 +195,8 @@ chapter = Chapter("Executive Summary").add(
     Paragraph("This report summarizes the release state."),
 )
 ```
+
+---
 
 ### 4.3 `Section`
 
@@ -182,7 +210,7 @@ Signature:
 Section(title: str, children: list[Section | ContentElement] = ...)
 ```
 
-Rendering:
+Rendering (depth-dependent):
 
 ```markdown
 ### Direct section
@@ -195,17 +223,17 @@ Methods:
 
 | Method | Returns | Description |
 |---|---|---|
-| `add(*items)` | `Section` | appends nested sections or content and returns self |
+| `add(*items)` | `Section` | Appends nested sections or content and returns self |
 
 Raises:
 
 | Condition | Exception |
 |---|---|
-| blank title | `ValueError` |
-| non-string title | `TypeError` |
-| invalid initial children collection | `TypeError` |
-| unsupported child | `InvalidChildError` |
-| render below H6 | `ReportDepthError` |
+| Blank title | `ValueError` |
+| Non-string title | `TypeError` |
+| Invalid initial children collection | `TypeError` |
+| Unsupported child | `InvalidChildError` |
+| Section rendered below H6 | `ReportDepthError` |
 
 Example:
 
@@ -218,6 +246,8 @@ section = Section("Risks").add(
     ),
 )
 ```
+
+---
 
 ### 4.4 `Paragraph`
 
@@ -236,8 +266,8 @@ Raises:
 | Condition | Exception |
 |---|---|
 | `content == ""` for plain string content | `ValueError` |
-| non-string and non-tuple content | `TypeError` |
-| tuple item other than `Text` or `LineBreak` | `TypeError` |
+| Non-string and non-tuple content | `TypeError` |
+| Tuple item other than `Text` or `LineBreak` | `TypeError` |
 
 Examples:
 
@@ -262,6 +292,8 @@ rich = Paragraph(
     ),
 )
 ```
+
+---
 
 ### 4.5 `Text`
 
@@ -295,6 +327,8 @@ from mkforge import Text
 item = Text("auditable", style="bold")
 ```
 
+---
+
 ### 4.6 `LineBreak`
 
 Module: `mkforge.content`
@@ -313,7 +347,11 @@ Rendering:
   
 ```
 
-It is intended for use inside a `Paragraph` inline tuple.
+(Two trailing spaces followed by a newline — Markdown hard line break.)
+
+Intended for use inside a `Paragraph` inline tuple.
+
+---
 
 ### 4.7 `CodeBlock`
 
@@ -343,6 +381,8 @@ print('hello from mkforge')
 ```
 ````
 
+---
+
 ### 4.8 `Table`
 
 Module: `mkforge.content`
@@ -359,10 +399,10 @@ Raises:
 
 | Condition | Exception |
 |---|---|
-| no headers | `InvalidTableError` |
-| row width differs from headers | `InvalidTableError` |
-| non-tuple headers or rows | `TypeError` |
-| non-string header or cell | `TypeError` |
+| No headers | `InvalidTableError` |
+| Row width differs from header count | `InvalidTableError` |
+| Non-tuple headers or rows | `TypeError` |
+| Non-string header or cell | `TypeError` |
 
 Example:
 
@@ -377,6 +417,8 @@ table = Table(
     ),
 )
 ```
+
+---
 
 ### 4.9 `BulletList`
 
@@ -394,9 +436,9 @@ Raises:
 
 | Condition | Exception |
 |---|---|
-| no items | `ValueError` |
-| non-tuple items | `TypeError` |
-| non-string item | `TypeError` |
+| No items | `ValueError` |
+| Non-tuple items | `TypeError` |
+| Non-string item | `TypeError` |
 
 Example:
 
@@ -405,6 +447,8 @@ from mkforge import BulletList
 
 scope = BulletList(("Markdown output", "Pure Python API"))
 ```
+
+---
 
 ### 4.10 `NumberedList`
 
@@ -422,9 +466,9 @@ Raises:
 
 | Condition | Exception |
 |---|---|
-| no items | `ValueError` |
-| non-tuple items | `TypeError` |
-| non-string item | `TypeError` |
+| No items | `ValueError` |
+| Non-tuple items | `TypeError` |
+| Non-string item | `TypeError` |
 
 Example:
 
@@ -433,6 +477,8 @@ from mkforge import NumberedList
 
 steps = NumberedList(("Compose report", "Render Markdown", "Save file"))
 ```
+
+---
 
 ### 4.11 `Image`
 
@@ -464,6 +510,8 @@ Rendered output:
 ![Quality dashboard](assets/quality-dashboard.png "Release quality")
 ```
 
+---
+
 ### 4.12 `HorizontalRule`
 
 Module: `mkforge.content`
@@ -481,6 +529,8 @@ Rendered output:
 ```markdown
 ---
 ```
+
+---
 
 ### 4.13 `BlockQuote`
 
@@ -508,6 +558,8 @@ Rendered output:
 > Readable reports are easier to review.
 ```
 
+---
+
 ## 5. Public Exceptions
 
 ### 5.1 `InvalidChildError`
@@ -529,7 +581,9 @@ Raised when a `Table` cannot be rendered as a valid GFM table.
 
 Raised when a nested section would render below H6.
 
-## 6. Module-Level Functions
+---
+
+## 6. Module-Level Functions — Report Generation
 
 ### 6.1 `mkforge.markdown.render_report`
 
@@ -574,7 +628,8 @@ Signature:
 generate_toc(report: Report) -> str
 ```
 
-Generates the TOC list for report chapters and sections.
+Generates the TOC list for report chapters and sections. Returns an empty
+string when the report has no chapters.
 
 ### 6.5 `mkforge.section_numbers.NumberingContext`
 
@@ -584,10 +639,10 @@ Methods:
 
 | Method | Description |
 |---|---|
-| `enter_level()` | pushes a new zero counter |
-| `leave_level()` | pops the active counter |
-| `advance()` | increments active counter |
-| `prefix()` | returns dotted prefix |
+| `enter_level()` | Pushes a new zero counter |
+| `leave_level()` | Pops the active counter |
+| `advance()` | Increments the active counter |
+| `prefix()` | Returns the dotted prefix string |
 
 ### 6.6 `mkforge.section_numbers.numbered_title`
 
@@ -599,9 +654,11 @@ numbered_title(title: str, context: NumberingContext) -> str
 
 Returns a title prefixed with the active dotted number.
 
+---
+
 ## 7. Metadata Reference
 
-Metadata is a dictionary. MkForge does not define allowed keys.
+Metadata is a free-form dictionary. MkForge does not define allowed keys.
 
 Example:
 
@@ -629,239 +686,743 @@ reviewed: null
 ---
 ```
 
-## 8. UML: Public Object Model
+Value rendering rules:
 
-```mermaid
-classDiagram
-    class Report {
-        +str title
-        +list~Chapter~ children
-        +dict metadata
-        +bool toc
-        +bool auto_numbering
-        +add(chapters) Report
-        +render() str
-        +save(path) None
-    }
+| Python type | Frontmatter output |
+|---|---|
+| `list` / `tuple` | YAML block list (`- item`) |
+| `bool` | `true` or `false` (lowercase) |
+| `None` | `null` |
+| anything else | `str(value)` |
 
-    class Chapter {
-        +str title
-        +list children
-        +add(items) Chapter
-    }
+---
 
-    class Section {
-        +str title
-        +list children
-        +add(items) Section
-    }
+## 8. Verification API
 
-    class Paragraph {
-        +str|tuple content
-    }
+MkForge exposes a focused API for Markdown and GitHub Flavored Markdown
+conformance verification. The built-in policy is merged: one call checks
+classic Markdown syntax, GFM tables, GFM task list markers, and MkForge local
+resource references when a file path is available.
 
-    class Text {
-        +str content
-        +TextStyle style
-    }
+### 8.1 `verify_markdown`
 
-    class LineBreak
-    class CodeBlock
-    class Table
-    class BulletList
-    class NumberedList
-    class Image
-    class HorizontalRule
-    class BlockQuote
+Module: `mkforge.verification.api`
 
-    Report "1" --> "*" Chapter
-    Chapter "1" --> "*" Section
-    Section "1" --> "*" Section
-    Chapter "1" --> "*" Paragraph
-    Section "1" --> "*" Paragraph
-    Paragraph "1" --> "*" Text
-    Paragraph "1" --> "*" LineBreak
+Exported by: `mkforge`
+
+Signature:
+
+```python
+verify_markdown(
+    source: str,
+    *,
+    source_path: str | Path | None = None,
+    settings: VerificationSettings | None = None,
+    custom_rules: Iterable[MarkdownRule] = (),
+) -> VerificationReport
 ```
 
-## 9. UML: Module Architecture
+Parameters:
 
-```mermaid
-flowchart TD
-    public[mkforge public API] --> document[document.Report]
-    public --> headings[headings.Chapter/Section]
-    public --> content[content elements]
-    public --> errors[errors]
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `source` | `str` | required | Markdown source text |
+| `source_path` | `str | Path | None` | `None` | Path used for resource resolution and settings discovery |
+| `settings` | `VerificationSettings | None` | `None` | In-memory settings; when absent, settings are discovered from TOML files near `source_path` |
+| `custom_rules` | `Iterable[MarkdownRule]` | `()` | Additional rule callables appended after built-in rules |
 
-    document --> markdown[markdown render/save]
-    markdown --> frontmatter[frontmatter metadata]
-    markdown --> toc[table_of_contents]
-    markdown --> numbers[section_numbers]
-    markdown --> markdown_content[markdown_content]
-    markdown_content --> content
-    headings --> content
+Returns: `VerificationReport`
+
+Raises: nothing (rule errors are not suppressed; malformed rules may raise
+internally).
+
+Example:
+
+```python
+from mkforge import verify_markdown
+
+report = verify_markdown("# Title\n\n| A | B |\n| --- | --- |\n")
+print(report.passed)       # True
+print(report.rule_set_name)  # "markdown-compliance"
 ```
 
-## 10. UML: Render Sequence
+---
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Report
-    participant Markdown
-    participant Frontmatter
-    participant Toc
-    participant Content
+### 8.2 `verify_markdown_file`
 
-    User->>Report: render()
-    Report->>Markdown: render_report(report)
-    Markdown->>Frontmatter: render_metadata(dict)
-    Markdown->>Markdown: append H1 report title
-    Markdown->>Toc: generate_toc(report)
-    loop chapters and sections
-        Markdown->>Content: render_content(item)
-        Content-->>Markdown: Markdown block
-    end
-    Markdown-->>Report: complete Markdown document
-    Report-->>User: str
+Module: `mkforge.verification.api`
+
+Exported by: `mkforge`
+
+Signature:
+
+```python
+verify_markdown_file(
+    path: str | Path,
+    *,
+    settings: VerificationSettings | None = None,
+    custom_rules: Iterable[MarkdownRule] = (),
+) -> VerificationReport
 ```
 
-## 11. UML: Validation Flow
+Reads the file as UTF-8 and delegates to `verify_markdown`. The file path is
+used automatically as `source_path` for resource resolution and settings
+discovery.
 
-```mermaid
-flowchart TD
-    add[add item] --> report{Report?}
-    report -->|yes| chapter_check{item is Chapter}
-    chapter_check -->|no| invalid_child[InvalidChildError]
-    chapter_check -->|yes| append[append child]
+Raises: `FileNotFoundError` when `path` does not exist.
 
-    report -->|no| container{Chapter or Section}
-    container --> type_check{Section or content element}
-    type_check -->|no| invalid_child
-    type_check -->|yes| append
+Example:
+
+```python
+from mkforge import verify_markdown_file
+
+report = verify_markdown_file("docs/README.md")
+for d in report.diagnostics:
+    print(f"[{d.rule_id}] line {d.line}: {d.message}")
 ```
 
-## 12. Complete Demo
+---
 
-Run:
+### 8.3 `VerificationReport`
+
+Module: `mkforge.verification.api`
+
+Exported by: `mkforge`
+
+Frozen dataclass.
+
+Attributes:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `rule_set_name` | `str` | Name of the built-in rule set (`"markdown-compliance"`) |
+| `diagnostics` | `tuple[Diagnostic, ...]` | Sorted diagnostics, ordered by `(line, column, rule_id)` |
+| `passed` | `bool` | `True` when `diagnostics` is empty |
+
+---
+
+### 8.4 `Diagnostic`
+
+Module: `mkforge.verification.policy`
+
+Exported by: `mkforge`
+
+Frozen dataclass.
+
+Attributes:
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `rule_id` | `str` | required | Stable rule identifier |
+| `name` | `str` | required | Human-readable rule name |
+| `line` | `int` | required | One-based source line |
+| `column` | `int` | required | One-based source column |
+| `message` | `str` | required | Precise diagnostic message |
+| `category` | `str` | `"markdown-conformance"` | Diagnostic category |
+| `severity` | `str` | `"warning"` | Diagnostic severity |
+
+Custom rule example:
+
+```python
+from mkforge import Diagnostic, MarkdownSource
+
+def check_marker(source: MarkdownSource) -> tuple[Diagnostic, ...]:
+    """Report the custom BAD_MARKER token."""
+    return tuple(
+        Diagnostic(
+            rule_id="X001",
+            name="Custom marker",
+            line=line.number,
+            column=line.text.index("BAD_MARKER") + 1,
+            message="Remove BAD_MARKER.",
+        )
+        for line in source.lines
+        if "BAD_MARKER" in line.text
+    )
+```
+
+---
+
+### 8.5 `MarkdownSource`
+
+Module: `mkforge.verification.policy`
+
+Exported by: `mkforge`
+
+Frozen dataclass. Passed as the sole argument to every rule callable.
+
+Attributes:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `text` | `str` | Full Markdown source text |
+| `lines` | `tuple[MarkdownLine, ...]` | Pre-split one-based source lines |
+| `path` | `Path | None` | Source path; `None` when verifying raw text |
+| `settings` | `VerificationSettings` | Active verification settings |
+
+Class method:
+
+```python
+MarkdownSource.from_text(
+    text: str,
+    *,
+    source_path: str | Path | None = None,
+    settings: VerificationSettings | None = None,
+) -> MarkdownSource
+```
+
+Instance method:
+
+```python
+source.rule_options(rule_id: str) -> dict[str, object]
+```
+
+Returns the configured option mapping for a given rule identifier.
+
+---
+
+### 8.6 `MarkdownLine`
+
+Module: `mkforge.verification.policy`
+
+Exported by: `mkforge`
+
+Frozen dataclass.
+
+Attributes:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `number` | `int` | One-based line number |
+| `text` | `str` | Raw line text without trailing newline |
+
+---
+
+### 8.7 `MarkdownRule`
+
+Module: `mkforge.verification.policy`
+
+Exported by: `mkforge`
+
+Type alias:
+
+```python
+type MarkdownRule = Callable[[MarkdownSource], tuple[Diagnostic, ...]]
+```
+
+Any callable with this signature is a valid rule. Built-in rules and custom
+rules are structurally identical.
+
+---
+
+### 8.8 `VerificationSettings`
+
+Module: `mkforge.verification.settings`
+
+Exported by: `mkforge`
+
+Frozen dataclass.
+
+Signature:
+
+```python
+VerificationSettings(
+    disabled: frozenset[str] = frozenset(),
+    rules: dict[str, RuleOptions] = ...,
+)
+```
+
+Attributes:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `disabled` | `frozenset[str]` | Rule identifiers to skip |
+| `rules` | `dict[str, RuleOptions]` | Per-rule option mappings |
+
+Method:
+
+```python
+settings.rule_options(rule_id: str) -> dict[str, object]
+```
+
+Examples:
+
+```python
+from mkforge import VerificationSettings, verify_markdown
+
+# Disable a rule
+report = verify_markdown(
+    "# Title\n\n![img](missing.png)\n",
+    settings=VerificationSettings(disabled=frozenset({"MKF001"})),
+)
+```
+
+```python
+# Override rule options
+report = verify_markdown(
+    "# Title\n\nThis line is quite long.\n",
+    settings=VerificationSettings(
+        rules={"MD013": {"line_length": 40}},
+    ),
+)
+```
+
+---
+
+## 9. Built-in Rule Reference
+
+### 9.1 Rule Identifier Prefixes
+
+| Prefix | Scope |
+|---|---|
+| `MD001`–`MD047` | markdownlint-compatible Markdown conformance checks |
+| `GFM001`–`GFM003` | GitHub Flavored Markdown verification |
+| `MKF001` | MkForge resource verification |
+
+### 9.2 Markdown Rules (MD prefix)
+
+| Rule ID | Name | Description |
+|---|---|---|
+| `MD001` | Heading increment | Heading levels must increment by one at a time |
+| `MD002` | First heading level | First heading must be the configured level |
+| `MD003` | Heading style | All headings must use a consistent style |
+| `MD004` | Unordered list style | Unordered list markers must be consistent |
+| `MD005` | List indentation consistency | List indentation must be consistent |
+| `MD006` | Top-level list indentation | Top-level unordered lists must not be indented |
+| `MD007` | Unordered list indentation | Unordered list indentation must match configured value |
+| `MD009` | Trailing spaces | Lines must not have unnecessary trailing spaces |
+| `MD010` | Hard tabs | Lines must not contain hard tab characters |
+| `MD011` | Reversed link syntax | Links must use `[text](url)` not `(text)[url]` |
+| `MD012` | Multiple blank lines | No more than one consecutive blank line |
+| `MD013` | Line length | Lines must not exceed the configured length |
+| `MD014` | Command prompt | Shell prompt markers unnecessary in command-only blocks |
+| `MD018` | ATX heading spacing | ATX headings require a space after `#` |
+| `MD019` | ATX heading extra spaces | ATX headings must not have multiple spaces after `#` |
+| `MD020` | Closed ATX spacing | Closed ATX headings require a space before closing `#` |
+| `MD021` | Closed ATX extra spaces | Closed ATX headings must not have multiple spaces inside |
+| `MD022` | Heading blank lines | Headings must be surrounded by blank lines |
+| `MD023` | Heading alignment | Headings must start at the beginning of the line |
+| `MD024` | Duplicate headings | Headings must not have duplicate content |
+| `MD025` | Multiple top-level headings | Only one H1 heading allowed |
+| `MD026` | Heading punctuation | Headings must not end with punctuation |
+| `MD027` | Blockquote spacing | Blockquote markers must have one space after `>` |
+| `MD028` | Blank blockquote line | No blank lines inside a blockquote |
+| `MD029` | Ordered list prefix | Ordered list items must use the configured prefix style |
+| `MD030` | List marker spacing | Spaces after list markers must match configured value |
+| `MD031` | Fence blank lines | Fenced code blocks must be surrounded by blank lines |
+| `MD032` | List blank lines | Lists must be surrounded by blank lines |
+| `MD033` | Inline HTML | Inline HTML is not allowed (except configured elements) |
+| `MD034` | Bare URL | URLs must not appear bare; wrap in `<url>` or `[text](url)` |
+| `MD035` | Horizontal rule style | Horizontal rules must use a consistent style |
+| `MD036` | Emphasis as heading | Emphasis must not be used as a heading substitute |
+| `MD037` | Emphasis marker spacing | No spaces inside emphasis markers |
+| `MD038` | Code span spacing | No spaces inside code span markers |
+| `MD039` | Link text spacing | No spaces inside link text brackets |
+| `MD040` | Fence language | Fenced code blocks must specify a language |
+| `MD041` | First line heading | First line must be a heading |
+| `MD046` | Code block style | Code blocks must use the configured style |
+| `MD047` | Single trailing newline | Files must end with exactly one newline |
+
+### 9.3 GFM Rules (GFM prefix)
+
+| Rule ID | Name | Description |
+|---|---|---|
+| `GFM001` | GFM table delimiter | Each delimiter cell must have at least three hyphens |
+| `GFM002` | GFM table column count | Table rows must have the same column count as the header |
+| `GFM003` | GFM task list marker | Task list markers must be `[ ]` or `[x]` |
+
+### 9.4 MkForge Rules (MKF prefix)
+
+| Rule ID | Name | Description |
+|---|---|---|
+| `MKF001` | Local resource exists | Relative link and image targets must resolve from the source file directory |
+
+`MKF001` is only active when `source_path` is provided. Fragment-only links
+(`#anchor`) and remote URLs are not checked.
+
+### 9.5 Configurable Rule Options
+
+| Rule ID | Option | Default | Description |
+|---|---|---|---|
+| `MD002` | `level` | `1` | Expected first heading level |
+| `MD003` | `style` | `"consistent"` | `atx`, `atx_closed`, `setext`, `setext_with_atx`, `consistent` |
+| `MD004` | `style` | `"consistent"` | `asterisk`, `plus`, `dash`, `consistent` |
+| `MD007` | `indent` | `3` | Spaces per unordered list indent level |
+| `MD009` | `br_spaces` | `2` | Trailing spaces allowed for hard line break |
+| `MD010` | `ignore_code_blocks` | `False` | Skip hard tab check inside fenced code |
+| `MD013` | `line_length` | `80` | Maximum line character count |
+| `MD013` | `ignore_code_blocks` | `False` | Skip line length inside fenced code |
+| `MD013` | `tables` | `True` | Enforce line length in tables |
+| `MD013` | `headings` | `True` | Enforce line length in headings |
+| `MD024` | `allow_different_nesting` | `False` | Allow same text at different heading levels |
+| `MD025` | `level` | `1` | Heading level considered top-level |
+| `MD026` | `punctuation` | `".,;:!?"` | Characters that must not end a heading |
+| `MD029` | `style` | `"one"` | `one`, `ordered`, `zero` |
+| `MD030` | `ul_single` | `1` | Spaces after unordered marker, single-line item |
+| `MD030` | `ol_single` | `1` | Spaces after ordered marker, single-line item |
+| `MD030` | `ul_multi` | `1` | Spaces after unordered marker, multi-line item |
+| `MD030` | `ol_multi` | `1` | Spaces after ordered marker, multi-line item |
+| `MD033` | `allowed_elements` | `""` | Comma-separated HTML element names that are permitted |
+| `MD035` | `style` | `"consistent"` | `---`, `***`, `___`, `consistent` |
+| `MD036` | `punctuation` | `".,;:!?"` | Trailing characters that identify emphasis-as-heading |
+| `MD041` | `level` | `1` | Required level of the first-line heading |
+| `MD046` | `style` | `"fenced"` | `fenced`, `indented`, `consistent` |
+
+---
+
+## 10. Settings Configuration
+
+Settings are discovered automatically when `source_path` is provided. MkForge
+searches from the source file directory upward for the first directory
+containing any of:
+
+1. `pyproject.toml` — read from `[tool.mkforge.verification]`
+2. `.mkforge.toml` — read from `[verification]` or root table
+3. `.mkforge` — read from `[verification]` or root table
+
+Example `pyproject.toml`:
+
+```toml
+[tool.mkforge.verification]
+disabled = ["MD013", "MD033"]
+
+[tool.mkforge.verification.rules.MD003]
+style = "atx"
+
+[tool.mkforge.verification.rules.MD013]
+line_length = 100
+headings = false
+```
+
+Example `.mkforge.toml`:
+
+```toml
+[verification]
+disabled = ["MD002"]
+
+[verification.rules.MD004]
+style = "dash"
+```
+
+Merge semantics: per-rule options are merged key-by-key over defaults; the
+`disabled` set is unioned.
+
+---
+
+## 11. Custom Rules
+
+A custom rule is any callable with the `MarkdownRule` signature:
+
+```python
+type MarkdownRule = Callable[[MarkdownSource], tuple[Diagnostic, ...]]
+```
+
+Custom rules are appended after built-in rules and run in the order given.
+They receive the same `MarkdownSource` context and may use `source.lines`,
+`source.text`, `source.path`, and `source.rule_options()`.
+
+Full custom rule example:
+
+```python
+from mkforge import (
+    Diagnostic,
+    MarkdownRule,
+    MarkdownSource,
+    verify_markdown,
+)
+
+
+def check_todo(source: MarkdownSource) -> tuple[Diagnostic, ...]:
+    """Return diagnostics for unresolved TODO markers."""
+    return tuple(
+        Diagnostic(
+            rule_id="TEAM001",
+            name="Unresolved TODO",
+            line=line.number,
+            column=line.text.index("TODO:") + 1,
+            message="Resolve or remove this TODO before publishing.",
+        )
+        for line in source.lines
+        if "TODO:" in line.text
+    )
+
+
+rules: tuple[MarkdownRule, ...] = (check_todo,)
+
+report = verify_markdown(
+    "# Title\n\nTODO: finish this section\n",
+    custom_rules=rules,
+)
+```
+
+---
+
+## 12. UML: Public Object Model
+
+```plantuml
+@startuml public-object-model
+skinparam classAttributeIconSize 0
+
+class Report {
+  +title: str
+  +children: list[Chapter]
+  +metadata: dict | None
+  +toc: bool
+  +auto_numbering: bool
+  +add(*chapters): Report
+  +render(): str
+  +save(path): None
+}
+
+class Chapter {
+  +title: str
+  +children: list
+  +add(*items): Chapter
+}
+
+class Section {
+  +title: str
+  +children: list
+  +add(*items): Section
+}
+
+class Paragraph { +content: str | tuple }
+class Text { +content: str; +style: TextStyle }
+class LineBreak
+class CodeBlock { +code: str; +language: str }
+class Table { +headers: tuple; +rows: tuple }
+class BulletList { +items: tuple }
+class NumberedList { +items: tuple }
+class Image { +path: str; +alt: str; +title: str }
+class HorizontalRule
+class BlockQuote { +content: str }
+
+Report "1" --> "*" Chapter
+Chapter "1" --> "*" Section
+Chapter "1" --> "*" Paragraph
+Chapter "1" --> "*" CodeBlock
+Chapter "1" --> "*" Table
+Chapter "1" --> "*" BulletList
+Chapter "1" --> "*" NumberedList
+Chapter "1" --> "*" Image
+Chapter "1" --> "*" HorizontalRule
+Chapter "1" --> "*" BlockQuote
+Section "1" --> "*" Section
+Section "1" --> "*" Paragraph
+Section "1" --> "*" CodeBlock
+Section "1" --> "*" Table
+Section "1" --> "*" BulletList
+Section "1" --> "*" NumberedList
+Section "1" --> "*" Image
+Section "1" --> "*" HorizontalRule
+Section "1" --> "*" BlockQuote
+Paragraph "1" --> "*" Text
+Paragraph "1" --> "*" LineBreak
+@enduml
+```
+
+## 13. UML: Verification Type Model
+
+```plantuml
+@startuml verification-types
+skinparam classAttributeIconSize 0
+
+interface MarkdownRule <<type alias>> {
+  __call__(source: MarkdownSource): tuple[Diagnostic, ...]
+}
+
+class MarkdownSource {
+  +text: str
+  +lines: tuple[MarkdownLine, ...]
+  +path: Path | None
+  +settings: VerificationSettings
+  +from_text(...): MarkdownSource
+  +rule_options(rule_id): dict
+}
+
+class MarkdownLine {
+  +number: int
+  +text: str
+}
+
+class VerificationSettings {
+  +disabled: frozenset[str]
+  +rules: dict[str, RuleOptions]
+  +rule_options(rule_id): RuleOptions
+}
+
+class VerificationReport {
+  +rule_set_name: str
+  +diagnostics: tuple[Diagnostic, ...]
+  +passed: bool
+}
+
+class Diagnostic {
+  +rule_id: str
+  +name: str
+  +line: int
+  +column: int
+  +message: str
+  +category: str
+  +severity: str
+}
+
+MarkdownSource --> MarkdownLine
+MarkdownSource --> VerificationSettings
+VerificationReport --> Diagnostic
+MarkdownRule ..> MarkdownSource : receives
+MarkdownRule ..> Diagnostic : returns
+@enduml
+```
+
+## 14. UML: Module Architecture
+
+```plantuml
+@startuml module-architecture
+skinparam linetype ortho
+left to right direction
+
+package "mkforge (public)" {
+  [__init__]
+}
+
+package "Report generation" {
+  [document]
+  [headings]
+  [content]
+  [markdown]
+  [frontmatter]
+  [table_of_contents]
+  [section_numbers]
+  [markdown_content]
+}
+
+package "Verification" {
+  [verification.api]
+  [verification.policy]
+  [verification.registry]
+  [verification.settings]
+  [rules.markdown]
+  [rules.gfm]
+}
+
+[__init__] --> [document]
+[__init__] --> [headings]
+[__init__] --> [content]
+[__init__] --> [verification.api]
+
+[document] --> [markdown]
+[markdown] --> [frontmatter]
+[markdown] --> [table_of_contents]
+[markdown] --> [section_numbers]
+[markdown] --> [markdown_content]
+
+[verification.api] --> [verification.registry]
+[verification.api] --> [verification.policy]
+[verification.api] --> [verification.settings]
+[verification.registry] --> [verification.policy]
+[verification.registry] --> [rules.markdown]
+[verification.registry] --> [rules.gfm]
+@enduml
+```
+
+## 15. UML: Render Sequence
+
+```plantuml
+@startuml render-sequence
+participant User
+participant Report
+participant Markdown
+participant Frontmatter
+participant Toc
+participant Content
+
+User -> Report: render()
+Report -> Markdown: render_report(report)
+Markdown -> Frontmatter: render_metadata(dict)
+Frontmatter --> Markdown: YAML block
+Markdown -> Markdown: append H1 title
+Markdown -> Toc: generate_toc(report)
+Toc --> Markdown: TOC lines or ""
+loop chapters and sections
+  Markdown -> Content: render_content(item)
+  Content --> Markdown: Markdown block
+end
+Markdown --> Report: complete document str
+Report --> User: str
+@enduml
+```
+
+## 16. UML: Verification Sequence
+
+```plantuml
+@startuml verification-sequence
+participant User
+participant "verify_markdown" as API
+participant Registry
+participant Rule
+participant VerificationReport
+
+User -> API: verify_markdown(text, settings, custom_rules)
+API -> API: resolve settings
+API -> API: MarkdownSource.from_text(...)
+API -> Registry: MARKDOWN_COMPLIANCE.rules
+loop each built-in rule
+  API -> Rule: rule(source)
+  Rule --> API: tuple[Diagnostic, ...]
+end
+loop each custom rule
+  API -> Rule: rule(source)
+  Rule --> API: tuple[Diagnostic, ...]
+end
+API -> API: filter disabled
+API -> API: sort by (line, col, rule_id)
+API -> VerificationReport: new VerificationReport
+VerificationReport --> User: report
+@enduml
+```
+
+## 17. UML: Validation Flow
+
+```plantuml
+@startuml validation-flow
+start
+:add(item) called on Report / Chapter / Section;
+if (container is Report?) then (yes)
+  if (item is Chapter?) then (yes)
+    :append child;
+  else (no)
+    :raise InvalidChildError;
+  endif
+else (no)
+  if (item is Section or content element?) then (yes)
+    :append child;
+  else (no)
+    :raise InvalidChildError;
+  endif
+endif
+stop
+@enduml
+```
+
+## 18. Complete Demos
+
+### Report generation
 
 ```bash
 uv run python demo_report.py
 ```
 
-The demo writes `work/demo_report.md` and exercises:
+Exercises: dictionary metadata, TOC, automatic numbering, H1–H6 headings,
+paragraphs and inline styles, tables, bullet and numbered lists, images,
+block quotes, horizontal rules, code blocks, file saving.
 
-- dictionary metadata;
-- table of contents;
-- automatic numbering;
-- report title as the only H1;
-- chapters as H2;
-- sections as H3 through H6;
-- paragraphs and inline styles;
-- tables;
-- bullet and numbered lists;
-- images;
-- block quotes;
-- horizontal rules;
-- code blocks;
-- file saving.
+### Verification
 
-## 13. Markdown Diagnostics API
-
-MkForge exposes separate APIs for Markdown conformance verification and
-document content validation.
-
-```python
-from mkforge import validate, verify
-
-verification = verify("# Title\n\ntext   \n")
-validation = validate("# Title?\n")
+```bash
+uv run python demo_verif.py
 ```
 
-Public diagnostic elements:
-
-| Name | Purpose |
-|---|---|
-| `Diagnostic` | immutable diagnostic with rule id, category, line, column, message, and severity |
-| `SourceContext` | parsed source passed to rules |
-| `FunctionRule` | adapter for function-backed custom rules |
-| `RuleRegistry` | mutable registry for built-in or custom rules |
-| `Verifier` | Markdown/GFM conformance engine |
-| `verify` | verify a Markdown string |
-| `verify_file` | verify a UTF-8 Markdown file |
-| `Validator` | document content validation engine |
-| `validate` | validate a Markdown string |
-| `validate_file` | validate a UTF-8 Markdown file |
-
-Custom rule example:
-
-```python
-from mkforge import (
-    Diagnostic,
-    FunctionRule,
-    Validator,
-    RuleRegistry,
-    SourceContext,
-)
-
-
-def check_marker(
-    context: SourceContext,
-) -> tuple[Diagnostic, ...]:
-    """Report a project-specific marker."""
-    if "NEEDS_REVIEW" not in context.source:
-        return ()
-    return (
-        Diagnostic(
-            "X001",
-            "Custom marker",
-            1,
-            1,
-            "Remove NEEDS_REVIEW marker.",
-            "validation",
-        ),
-    )
-
-
-registry = RuleRegistry()
-registry.register(FunctionRule("X001", "Custom marker", check_marker))
-validator = Validator(registry)
-diagnostics = validator.validate("# Title\n\nNEEDS_REVIEW\n")
-```
-
-Verification diagnostics live under `mkforge.verification.rules`.
-Validation diagnostics live under `mkforge.validation.rules`. Each
-diagnostic has exactly one Python module.
-
-Rule identifiers are MkForge-owned:
-
-| Prefix | Scope |
-|---|---|
-| `MKV001`-`MKV035` | base Markdown verification |
-| `MKG001`-`MKG005` | GitHub Flavored Markdown verification |
-| `MKC001`-`MKC013` | content validation |
-
-```mermaid
-classDiagram
-    class Verifier {
-        +verify(source, config, disabled) tuple
-        +verify_file(path, config, disabled) tuple
-    }
-    class Validator {
-        +validate(source, config, disabled) tuple
-        +validate_file(path, config, disabled) tuple
-    }
-    class RuleRegistry {
-        +register(rule) None
-        +enabled_rules(disabled) tuple
-    }
-    class FunctionRule {
-        +str rule_id
-        +str name
-        +check(context) tuple
-    }
-    class Diagnostic
-    Verifier --> RuleRegistry
-    Validator --> RuleRegistry
-    RuleRegistry --> FunctionRule
-    FunctionRule --> Diagnostic
-```
+Exercises: clean GFM source, mixed conformance violations, markdownlint-derived
+rules, file verification with resource checks, custom rules, disabled rules,
+rule option overrides, multiple custom rules, virtual `source_path`.

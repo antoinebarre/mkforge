@@ -28,148 +28,520 @@ evidence.
 | DSG-004 | Validate inputs close to object construction or composition. |
 | DSG-005 | Keep Markdown output deterministic. |
 | DSG-006 | Keep functions small enough for repository quality gates. |
+| DSG-007 | Keep verification orthogonal to report generation. |
+| DSG-008 | Make each conformance rule independently auditable. |
 
 ## 4. Architecture Overview
 
-MkForge uses a layered design:
+MkForge is organized as two independent subsystems sharing the same package
+namespace:
 
-1. Public package API in `mkforge.__init__`.
-2. Data model classes in `document`, `headings`, and `content`.
-3. Rendering orchestration in `markdown`.
-4. Specialized rendering helpers in `markdown_content`, `frontmatter`,
-   `table_of_contents`, and `section_numbers`.
-5. Explicit exceptions in `errors`.
+**Report generation subsystem** — builds and renders structured Markdown
+documents from Python objects.
+
+**Verification subsystem** — checks Markdown source text against Markdown,
+GFM, and MkForge-specific conformance rules.
+
+Each subsystem has its own entry points, data types, and internal module graph.
+They share no mutable state and no runtime coupling.
+
+```plantuml
+@startuml architecture-overview
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+package "mkforge" {
+  package "Report generation" {
+    [document]
+    [headings]
+    [content]
+    [markdown]
+    [frontmatter]
+    [table_of_contents]
+    [section_numbers]
+    [markdown_content]
+    [markdown_rendering]
+  }
+  package "Verification" {
+    [verification.api]
+    [verification.policy]
+    [verification.registry]
+    [verification.settings]
+    [verification.source_scan]
+    [verification.diagnostic_pattern]
+    [rules.markdown]
+    [rules.gfm]
+  }
+  [__init__] --> [document]
+  [__init__] --> [headings]
+  [__init__] --> [content]
+  [__init__] --> [errors]
+  [__init__] --> [verification.api]
+}
+@enduml
+```
 
 No module starts external processes, performs network access, or depends on
 third-party runtime libraries.
 
 ## 5. Module Responsibilities
 
+### 5.1 Report Generation Modules
+
 | Module | Responsibility | Public Elements |
 |---|---|---|
 | `mkforge.__init__` | Stable package exports | public API names |
-| `mkforge._metadata` | package identity constants | `PROJECT_NAME`, `PROJECT_DESCRIPTION` |
-| `mkforge.content` | Markdown content dataclasses and content validation | `Paragraph`, `Text`, `LineBreak`, `CodeBlock`, `Table`, `BulletList`, `NumberedList`, `Image`, `HorizontalRule`, `BlockQuote` |
-| `mkforge.document` | report root, render and save entry points | `Report` |
-| `mkforge.headings` | chapter and section containers, heading depth calculation | `Chapter`, `Section`, `compute_section_heading_level` |
-| `mkforge.markdown` | full document render and save orchestration | `render_report`, `save_report` |
-| `mkforge.markdown_content` | content element rendering | `render_content` |
-| `mkforge.frontmatter` | metadata dictionary rendering | `render_metadata` |
+| `mkforge._metadata` | Package identity constants | `PROJECT_NAME`, `PROJECT_DESCRIPTION` |
+| `mkforge.content` | Markdown content dataclasses | `Paragraph`, `Text`, `LineBreak`, `CodeBlock`, `Table`, `BulletList`, `NumberedList`, `Image`, `HorizontalRule`, `BlockQuote` |
+| `mkforge.content_validation` | Input validation for content types | `validate_paragraph_content`, `validate_items` |
+| `mkforge.document` | Report root, render and save entry points | `Report` |
+| `mkforge.headings` | Chapter and section containers, heading depth | `Chapter`, `Section`, `compute_section_heading_level` |
+| `mkforge.markdown` | Full document render and save orchestration | `render_report`, `save_report` |
+| `mkforge.markdown_content` | Content element rendering dispatch | `render_content` |
+| `mkforge.markdown_rendering` | Low-level Markdown primitive rendering | inline rendering helpers |
+| `mkforge.frontmatter` | Metadata dictionary rendering | `render_metadata` |
 | `mkforge.table_of_contents` | TOC generation and anchor slugs | `generate_toc`, `anchor_slug` |
-| `mkforge.section_numbers` | heading numbering state | `NumberingContext`, `numbered_title` |
-| `mkforge.errors` | explicit package exceptions | `InvalidChildError`, `InvalidTableError`, `ReportDepthError` |
+| `mkforge.section_numbers` | Heading numbering state machine | `NumberingContext`, `numbered_title` |
+| `mkforge.errors` | Explicit package exceptions | `InvalidChildError`, `InvalidTableError`, `ReportDepthError` |
+| `mkforge.input_checks` | Shared input validation guards | `require_str`, `require_bool`, `require_dict` |
+| `mkforge.table_validation` | Table-specific validation | `validate_table_headers`, `validate_table_rows` |
 
-## 6. Static Structure
+### 5.2 Verification Modules
 
-```mermaid
-classDiagram
-    class Report {
-        +str title
-        +list children
-        +dict metadata
-        +bool toc
-        +bool auto_numbering
-        +add(chapters) Report
-        +render() str
-        +save(path) None
-    }
+| Module | Responsibility |
+|---|---|
+| `mkforge.verification` | Public verification API re-exports |
+| `mkforge.verification.api` | `verify_markdown`, `verify_markdown_file`, `VerificationReport` |
+| `mkforge.verification.policy` | Core types: `Diagnostic`, `MarkdownLine`, `MarkdownSource`, `MarkdownRule`, `MarkdownPolicy` |
+| `mkforge.verification.registry` | Policy assembly: builds `MARKDOWN_COMPLIANCE` from rule modules |
+| `mkforge.verification.settings` | `VerificationSettings`, TOML discovery and merge |
+| `mkforge.verification.source_scan` | `lines_outside_fenced_code` scanning helper |
+| `mkforge.verification.diagnostic_pattern` | `matching_lines` regex-based diagnostic helper |
+| `mkforge.verification.rules.markdown._shared` | Shared parsers and diagnostic helpers for MD rules |
+| `mkforge.verification.rules.markdown.markdownlint_remaining` | Compatibility facade aggregating MD001–MD047 rule modules |
+| `mkforge.verification.rules.gfm.*` | GFM001–GFM003 rules (one module each) |
+| `mkforge.verification.rules.markdown.md*` | Individual MD rule modules (one module per rule or cohesive group) |
+| `mkforge.verification.rules.markdown.mkf001_local_resource_exists` | MKF001 local resource resolution |
 
-    class Chapter {
-        +str title
-        +list children
-        +add(items) Chapter
-    }
+## 6. Static Structure — Report Generation
 
-    class Section {
-        +str title
-        +list children
-        +add(items) Section
-    }
+```plantuml
+@startuml report-class-diagram
+skinparam classAttributeIconSize 0
 
-    class Paragraph
-    class Text
-    class LineBreak
-    class CodeBlock
-    class Table
-    class BulletList
-    class NumberedList
-    class Image
-    class HorizontalRule
-    class BlockQuote
+class Report {
+  +title: str
+  +children: list[Chapter]
+  +metadata: dict | None
+  +toc: bool
+  +auto_numbering: bool
+  +add(*items: Chapter): Report
+  +render(): str
+  +save(path): None
+}
 
-    Report "1" --> "*" Chapter
-    Chapter "1" --> "*" Section
-    Section "1" --> "*" Section
-    Chapter "1" --> "*" Paragraph
-    Chapter "1" --> "*" CodeBlock
-    Chapter "1" --> "*" Table
-    Chapter "1" --> "*" BulletList
-    Chapter "1" --> "*" NumberedList
-    Chapter "1" --> "*" Image
-    Chapter "1" --> "*" HorizontalRule
-    Chapter "1" --> "*" BlockQuote
-    Section "1" --> "*" Paragraph
-    Paragraph "1" --> "*" Text
-    Paragraph "1" --> "*" LineBreak
+class Chapter {
+  +title: str
+  +children: list
+  +add(*items): Chapter
+}
+
+class Section {
+  +title: str
+  +children: list
+  +add(*items): Section
+}
+
+class Paragraph {
+  +content: str | tuple
+}
+class Text {
+  +content: str
+  +style: TextStyle
+}
+class LineBreak
+class CodeBlock {
+  +code: str
+  +language: str
+}
+class Table {
+  +headers: tuple[str, ...]
+  +rows: tuple[tuple[str, ...], ...]
+}
+class BulletList { +items: tuple[str, ...] }
+class NumberedList { +items: tuple[str, ...] }
+class Image {
+  +path: str
+  +alt: str
+  +title: str
+}
+class HorizontalRule
+class BlockQuote { +content: str }
+
+Report "1" --> "*" Chapter
+Chapter "1" --> "*" Section
+Chapter "1" --> "*" Paragraph
+Chapter "1" --> "*" CodeBlock
+Chapter "1" --> "*" Table
+Chapter "1" --> "*" BulletList
+Chapter "1" --> "*" NumberedList
+Chapter "1" --> "*" Image
+Chapter "1" --> "*" HorizontalRule
+Chapter "1" --> "*" BlockQuote
+Section "1" --> "*" Section
+Section "1" --> "*" Paragraph
+Section "1" --> "*" CodeBlock
+Section "1" --> "*" Table
+Section "1" --> "*" BulletList
+Section "1" --> "*" NumberedList
+Section "1" --> "*" Image
+Section "1" --> "*" HorizontalRule
+Section "1" --> "*" BlockQuote
+Paragraph "1" --> "*" Text
+Paragraph "1" --> "*" LineBreak
+@enduml
 ```
 
-## 7. Module Dependency Diagram
+## 7. Static Structure — Verification Subsystem
 
-```mermaid
-flowchart TD
-    init[mkforge.__init__] --> document[document]
-    init --> headings[headings]
-    init --> content[content]
-    init --> errors[errors]
+```plantuml
+@startuml verification-class-diagram
+skinparam classAttributeIconSize 0
 
-    document --> headings
-    document --> markdown[markdown]
-    document --> errors
+class Diagnostic {
+  +rule_id: str
+  +name: str
+  +line: int
+  +column: int
+  +message: str
+  +category: str
+  +severity: str
+}
 
-    headings --> content
-    headings --> errors
+class MarkdownLine {
+  +number: int
+  +text: str
+}
 
-    content --> errors
+class MarkdownSource {
+  +text: str
+  +lines: tuple[MarkdownLine, ...]
+  +path: Path | None
+  +settings: VerificationSettings
+  +from_text(text, source_path, settings): MarkdownSource
+  +rule_options(rule_id): dict
+}
 
-    markdown --> frontmatter[frontmatter]
-    markdown --> markdown_content[markdown_content]
-    markdown --> toc[table_of_contents]
-    markdown --> numbers[section_numbers]
-    markdown --> headings
+class VerificationSettings {
+  +disabled: frozenset[str]
+  +rules: dict[str, RuleOptions]
+  +rule_options(rule_id): RuleOptions
+}
 
-    markdown_content --> content
-    toc --> headings
+class MarkdownPolicy {
+  +name: str
+  +rules: tuple[MarkdownRule, ...]
+}
+
+class VerificationReport {
+  +rule_set_name: str
+  +diagnostics: tuple[Diagnostic, ...]
+  +passed: bool
+}
+
+interface MarkdownRule <<type alias>> {
+  __call__(source: MarkdownSource): tuple[Diagnostic, ...]
+}
+
+MarkdownSource --> MarkdownLine
+MarkdownSource --> VerificationSettings
+MarkdownPolicy --> MarkdownRule
+VerificationReport --> Diagnostic
+MarkdownRule --> MarkdownSource
+MarkdownRule --> Diagnostic
+@enduml
 ```
 
-## 8. Runtime Rendering Sequence
+## 8. Module Dependency Diagram — Report Generation
 
-```mermaid
-sequenceDiagram
-    participant Caller
-    participant Report
-    participant Markdown
-    participant Frontmatter
-    participant Toc
-    participant Numbering
-    participant Content
+```plantuml
+@startuml deps-report
+skinparam linetype ortho
+left to right direction
 
-    Caller->>Report: render()
-    Report->>Markdown: render_report(report)
-    Markdown->>Frontmatter: render_metadata(metadata)
-    Markdown->>Toc: generate_toc(report)
-    Markdown->>Numbering: NumberingContext()
-    loop chapters and sections
-        Markdown->>Numbering: advance()
-        Markdown->>Content: render_content(item)
-        Content-->>Markdown: Markdown block
-    end
-    Markdown-->>Report: Markdown document
-    Report-->>Caller: str
+[__init__] --> [document]
+[__init__] --> [headings]
+[__init__] --> [content]
+[__init__] --> [errors]
+
+[document] --> [headings]
+[document] --> [markdown]
+[document] --> [errors]
+
+[headings] --> [content]
+[headings] --> [errors]
+[headings] --> [input_checks]
+
+[content] --> [errors]
+[content] --> [content_validation]
+[content] --> [table_validation]
+
+[markdown] --> [frontmatter]
+[markdown] --> [markdown_content]
+[markdown] --> [table_of_contents]
+[markdown] --> [section_numbers]
+[markdown] --> [headings]
+
+[markdown_content] --> [content]
+[markdown_content] --> [markdown_rendering]
+
+[table_of_contents] --> [headings]
+@enduml
 ```
 
-## 9. Data Design
+## 9. Module Dependency Diagram — Verification Subsystem
 
-### 9.1 Report
+```plantuml
+@startuml deps-verification
+skinparam linetype ortho
+left to right direction
+
+package "Public surface" {
+  [verification.__init__] --> [verification.api]
+}
+
+package "API layer" {
+  [verification.api] --> [verification.policy]
+  [verification.api] --> [verification.registry]
+  [verification.api] --> [verification.settings]
+}
+
+package "Policy layer" {
+  [verification.registry] --> [verification.policy]
+  [verification.registry] --> [rules.markdown]
+  [verification.registry] --> [rules.gfm]
+}
+
+package "Infrastructure" {
+  [verification.policy] --> [verification.settings]
+  [rules.markdown] --> [verification.policy]
+  [rules.markdown] --> [verification.source_scan]
+  [rules.markdown] --> [verification.diagnostic_pattern]
+  [rules.gfm] --> [verification.policy]
+}
+
+note bottom of [verification.policy]
+  Pure leaf: defines types only,
+  no downstream imports.
+end note
+@enduml
+```
+
+## 10. Runtime Rendering Sequence
+
+```plantuml
+@startuml rendering-sequence
+participant Caller
+participant Report
+participant Markdown
+participant Frontmatter
+participant Toc
+participant Numbering
+participant Content
+
+Caller -> Report: render()
+Report -> Markdown: render_report(report)
+Markdown -> Frontmatter: render_metadata(metadata)
+Frontmatter --> Markdown: YAML frontmatter block
+Markdown -> Toc: generate_toc(report)
+Toc --> Markdown: TOC lines or ""
+Markdown -> Numbering: NumberingContext()
+loop chapters
+  Markdown -> Numbering: enter_level() / advance()
+  Markdown -> Content: render_content(chapter)
+  Content --> Markdown: H2 heading block
+  loop sections (recursive)
+    Markdown -> Numbering: enter_level() / advance()
+    Markdown -> Content: render_content(section)
+    Content --> Markdown: H3..H6 heading block
+    Markdown -> Numbering: leave_level()
+  end
+  Markdown -> Numbering: leave_level()
+end
+Markdown --> Report: joined Markdown document
+Report --> Caller: str
+@enduml
+```
+
+## 11. Runtime Verification Sequence
+
+```plantuml
+@startuml verification-sequence
+participant Caller
+participant "verify_markdown" as API
+participant MarkdownSource
+participant Registry
+participant Rule
+participant VerificationReport
+
+Caller -> API: verify_markdown(text, settings, custom_rules)
+API -> API: load_settings(source_path) if no settings
+API -> MarkdownSource: from_text(text, source_path, settings)
+MarkdownSource --> API: source context
+API -> Registry: MARKDOWN_COMPLIANCE.rules
+Registry --> API: tuple[MarkdownRule, ...]
+loop each rule (built-in + custom)
+  API -> Rule: rule(source)
+  Rule --> API: tuple[Diagnostic, ...]
+end
+API -> API: filter disabled rules
+API -> API: sort by (line, column, rule_id)
+API -> VerificationReport: VerificationReport(rule_set_name, diagnostics)
+VerificationReport --> Caller: report
+@enduml
+```
+
+## 12. Registry Pattern — Rule Assembly
+
+The `registry.py` module is the single coupling point between the policy type
+system and concrete rule implementations. This isolates `policy.py` as a pure
+type leaf with no downstream imports.
+
+```plantuml
+@startuml registry-pattern
+skinparam linetype ortho
+
+package "policy.py (leaf)" {
+  class MarkdownPolicy
+  class MarkdownRule
+  class Diagnostic
+  class MarkdownSource
+}
+
+package "registry.py (assembler)" {
+  class MARKDOWN_COMPLIANCE
+  note right of MARKDOWN_COMPLIANCE
+    Module-level constant.
+    Created once at import time.
+  end note
+}
+
+package "rules.markdown.*" {
+  class "markdownlint_remaining.check" as F1
+  class "md011_reversed_link_syntax.check" as F2
+  class "md018_atx_heading_space.check" as F3
+  class "... (6 more)" as F4
+}
+
+package "rules.gfm.*" {
+  class "gfm001_table_delimiter.check" as G1
+  class "gfm002_table_column_count.check" as G2
+  class "gfm003_task_list_marker.check" as G3
+}
+
+MARKDOWN_COMPLIANCE --> MarkdownPolicy
+MarkdownPolicy --> MarkdownRule
+MARKDOWN_COMPLIANCE ..> F1
+MARKDOWN_COMPLIANCE ..> F2
+MARKDOWN_COMPLIANCE ..> F3
+MARKDOWN_COMPLIANCE ..> F4
+MARKDOWN_COMPLIANCE ..> G1
+MARKDOWN_COMPLIANCE ..> G2
+MARKDOWN_COMPLIANCE ..> G3
+@enduml
+```
+
+## 13. Rule Module Structure
+
+Each rule is an autonomous module exporting a single `check` callable. The
+`_shared.py` helper module centralizes document model types and parsing helpers
+reused across rules.
+
+```plantuml
+@startuml rule-structure
+skinparam linetype ortho
+
+package "_shared.py" {
+  class _Heading { line; level; text; style }
+  class _ListItem { line; indent; marker; gap; ordered }
+  class _CodeBlock { start; end; info; lines }
+  note as N1
+    Scanning: _headings(), _list_items(),
+    _fenced_blocks(), _unordered_items(),
+    _ordered_items()
+    Helpers: _diagnostic(), _int_option(),
+    _code_filtered_lines(), _line_is_too_long(),
+    _blank_line_diagnostics(), _allowed_html(), ...
+  end note
+}
+
+package "Individual rule modules" {
+  class "md001_heading_increment" as R1 { check(source) }
+  class "md003_heading_style" as R3 { check(source) }
+  class "md013_line_length" as R13 { check(source) }
+  class "md040_md041_md046_md047_blocks" as R40 {
+    check(source)
+    first_line_heading(source)
+    code_block_style(source)
+  }
+  class "... (17 more modules)" as RN { check(source) }
+}
+
+package "markdownlint_remaining.py (facade)" {
+  class "check(source)" as Facade
+  note right
+    Aggregates all MD rule modules.
+    Re-exports private helpers for
+    backward-compatible test access.
+  end note
+}
+
+R1 --> _shared.py
+R3 --> _shared.py
+R13 --> _shared.py
+R40 --> _shared.py
+Facade --> R1
+Facade --> R3
+Facade --> R13
+Facade --> R40
+Facade --> RN
+@enduml
+```
+
+## 14. Settings Discovery and Merge
+
+```plantuml
+@startuml settings-discovery
+start
+:load_settings(source_path);
+:resolve discovery root directory;
+:walk parent directories;
+if (pyproject.toml or .mkforge.toml or .mkforge found?) then (yes)
+  :read TOML file(s);
+  :extract [tool.mkforge.verification] table;
+  :parse disabled list;
+  :parse per-rule options;
+  :merge over default_settings();
+else (no)
+  :use default_settings();
+endif
+:return VerificationSettings;
+stop
+@enduml
+```
+
+Default rule options are markdownlint-compatible. Users override them via:
+
+- `pyproject.toml` under `[tool.mkforge.verification]`
+- `.mkforge.toml` at any ancestor directory
+- `.mkforge` at any ancestor directory
+
+Merge semantics: per-rule keys are merged individually; the `disabled` set is
+unioned.
+
+## 15. Data Design
+
+### 15.1 Report
 
 `Report` stores the document title, ordered chapters, optional metadata
 dictionary, TOC flag, and automatic numbering flag.
@@ -183,33 +555,29 @@ Design decisions:
 - Metadata type, metadata keys, TOC flag, numbering flag, and initial children
   are validated during construction.
 
-### 9.2 Chapter
+### 15.2 Chapter
 
 `Chapter` stores a non-blank title and ordered child items. It renders as H2.
 
-Allowed children:
+Allowed children: `Section`, and any content element defined in
+`mkforge.content`.
 
-- `Section`;
-- any content element defined in `mkforge.content`.
-
-### 9.3 Section
+### 15.3 Section
 
 `Section` stores a non-blank title and ordered child items. It renders as H3
 through H6 depending on depth.
 
-Allowed children:
+Allowed children: nested `Section`, and any content element defined in
+`mkforge.content`.
 
-- nested `Section`;
-- any content element defined in `mkforge.content`.
-
-### 9.4 Content Elements
+### 15.4 Content Elements
 
 Content elements are dataclasses representing Markdown concepts. Most are
 frozen because they are value-like and do not need composition methods.
 
 | Class | Stored Data | Validation |
 |---|---|---|
-| `Text` | `content`, `style` | type hints restrict style |
+| `Text` | `content`, `style` | style literal enforced at construction |
 | `LineBreak` | none | none |
 | `Paragraph` | plain string or inline tuple | empty plain string rejected |
 | `CodeBlock` | code, language | none |
@@ -220,11 +588,40 @@ frozen because they are value-like and do not need composition methods.
 | `HorizontalRule` | none | none |
 | `BlockQuote` | content | none |
 
-Runtime validation is intentionally stricter than type hints. Public
-constructors reject incorrect runtime types with explicit `TypeError` or
-`ValueError` messages before rendering can fail in lower-level code.
+### 15.5 Diagnostic
 
-## 10. Markdown Heading Design
+`Diagnostic` is an immutable frozen dataclass. Fields:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `rule_id` | `str` | required | Stable rule identifier (`MD013`, `GFM001`, `MKF001`) |
+| `name` | `str` | required | Human-readable rule name |
+| `line` | `int` | required | One-based source line number |
+| `column` | `int` | required | One-based source column number |
+| `message` | `str` | required | Precise diagnostic message |
+| `category` | `str` | `"markdown-conformance"` | Diagnostic category |
+| `severity` | `str` | `"warning"` | Diagnostic severity |
+
+### 15.6 MarkdownSource
+
+`MarkdownSource` is a frozen dataclass carrying all context needed by any rule.
+Rules receive it as their sole argument. This isolates rules from call-site
+concerns (file I/O, settings loading) and makes rules trivially testable.
+
+| Field | Type | Description |
+|---|---|---|
+| `text` | `str` | Full Markdown source text |
+| `lines` | `tuple[MarkdownLine, ...]` | Pre-split, one-based indexed lines |
+| `path` | `Path | None` | Source path for local resource resolution |
+| `settings` | `VerificationSettings` | Rule options and disabled set |
+
+### 15.7 MarkdownPolicy
+
+`MarkdownPolicy` pairs a name with an ordered tuple of `MarkdownRule`
+callables. The policy is immutable and assembled once in `registry.py` at
+module import time.
+
+## 16. Markdown Heading Design
 
 The report title is the only H1:
 
@@ -247,9 +644,9 @@ Direct sections render as H3:
 Nested sections increment heading level until H6. Rendering a section deeper
 than H6 raises `ReportDepthError`.
 
-## 11. Rendering Algorithms
+## 17. Rendering Algorithms
 
-### 11.1 Report Rendering
+### 17.1 Report Rendering
 
 1. Create a list of Markdown blocks.
 2. If metadata exists, append rendered frontmatter.
@@ -260,7 +657,7 @@ than H6 raises `ReportDepthError`.
 7. Render content elements through `markdown_content.render_content`.
 8. Join blocks with two newlines.
 
-### 11.2 Frontmatter Rendering
+### 17.2 Frontmatter Rendering
 
 For each metadata dictionary item:
 
@@ -272,7 +669,7 @@ For each metadata dictionary item:
 This is a deliberately small frontmatter renderer, not a complete YAML
 serializer.
 
-### 11.3 TOC Rendering
+### 17.3 TOC Rendering
 
 The TOC traverses chapters and sections. Each line uses:
 
@@ -284,7 +681,7 @@ The TOC traverses chapters and sections. Each line uses:
 whitespace, and hyphens, trims whitespace, and replaces whitespace with
 hyphens.
 
-### 11.4 Automatic Numbering
+### 17.4 Automatic Numbering
 
 `NumberingContext` maintains a stack of counters.
 
@@ -301,32 +698,60 @@ Example:
 1.1.1.
 ```
 
-## 12. Error Handling
+### 17.5 Verification Algorithm
+
+1. Resolve settings: use caller-supplied `VerificationSettings` or discover
+   from `source_path` via TOML file search.
+2. Build `MarkdownSource` from text, path, and settings.
+3. Collect all built-in rules from `MARKDOWN_COMPLIANCE.rules`.
+4. Append caller-supplied custom rules.
+5. Run each rule with the source; accumulate all emitted diagnostics.
+6. Filter out diagnostics whose `rule_id` is in `settings.disabled`.
+7. Sort diagnostics by `(line, column, rule_id)`.
+8. Return `VerificationReport`.
+
+### 17.6 Rule Execution Model
+
+Each rule is a pure callable `(MarkdownSource) -> tuple[Diagnostic, ...]`. Rules:
+
+- have no side effects;
+- do not share mutable state;
+- are order-independent (except for `consistent` style options that derive
+  their expectation from the first occurrence).
+
+## 18. Error Handling
 
 | Error | Raised By | Condition |
 |---|---|---|
 | `ValueError` | `Report`, `Chapter`, `Section` | blank title |
 | `ValueError` | `Paragraph` | empty plain string |
 | `ValueError` | `BulletList`, `NumberedList` | no items |
+| `ValueError` | `Text` | invalid style |
 | `InvalidChildError` | `Report.add`, `Chapter.add`, `Section.add` | unsupported child |
 | `InvalidTableError` | `Table` | empty headers or row width mismatch |
 | `ReportDepthError` | `compute_section_heading_level` | heading deeper than H6 |
 | `TypeError` | `render_content` | renderer receives unknown content type |
 | `TypeError` | constructors and render helpers | invalid runtime input type |
+| `FileNotFoundError` | `verify_markdown_file` | source file does not exist |
 
-## 13. Interface Design
+## 19. Interface Design
 
-### 13.1 Public Package API
+### 19.1 Public Package API
 
 The stable user-facing API is exported by `mkforge.__init__`.
 
 Users should prefer:
 
 ```python
-from mkforge import Report, Chapter, Section, Paragraph
+from mkforge import (
+    Report, Chapter, Section,
+    Paragraph, Text, CodeBlock, Table,
+    verify_markdown, verify_markdown_file,
+    Diagnostic, MarkdownSource, VerificationSettings,
+)
 ```
 
-### 13.2 Module-Level API
+### 19.2 Module-Level API
 
 Advanced users and tests may use:
 
@@ -337,7 +762,20 @@ Advanced users and tests may use:
 - `mkforge.section_numbers.NumberingContext`;
 - `mkforge.section_numbers.numbered_title`.
 
-## 14. Security And Safety Considerations
+### 19.3 Verification Extension Point
+
+Custom rules are plain Python callables conforming to the `MarkdownRule` type
+alias:
+
+```python
+type MarkdownRule = Callable[[MarkdownSource], tuple[Diagnostic, ...]]
+```
+
+They are passed as `custom_rules=` to `verify_markdown` or
+`verify_markdown_file`. Built-in rules run first; custom rules run in
+caller-provided order after them.
+
+## 20. Security and Safety Considerations
 
 MkForge does not execute generated Markdown or user-provided code snippets.
 
@@ -349,39 +787,50 @@ the user.
 MkForge does not sanitize Markdown content. This is intentional because the
 caller owns report content.
 
-## 15. Performance Considerations
+The verification engine reads files only when `verify_markdown_file` is called.
+Resource existence checks (`MKF001`) perform local filesystem reads limited to
+the directory of the source file.
+
+## 21. Performance Considerations
 
 Rendering is linear in the number of report objects and content elements.
 
-The package does not cache output. Callers can cache rendered Markdown if
-needed.
+Verification is linear in the product of rule count and source line count.
 
-## 16. Test And Verification Design
+The package does not cache output. Callers can cache rendered Markdown or
+`VerificationReport` objects if needed.
+
+`MARKDOWN_COMPLIANCE` is assembled once at module import time. Subsequent calls
+to `verify_markdown` do not reconstruct the policy.
+
+## 22. Test and Verification Design
 
 Verification assets:
 
 | Asset | Purpose |
 |---|---|
-| `tests/test_metadata.py` | package identity |
-| `tests/test_report_generation.py` | full rendering behavior |
-| `tests/test_helpers.py` | helper and save behavior |
-| `tests/test_validation.py` | validation and explicit errors |
-| `demo_report.py` | executable integration example |
-| `make check` | repository quality gate |
+| `tests/test_metadata.py` | Package identity |
+| `tests/test_report_generation.py` | Full rendering behavior |
+| `tests/test_helpers.py` | Helper and save behavior |
+| `tests/test_validation.py` | Validation and explicit errors |
+| `tests/test_markdown_verification.py` | Verification subsystem rules and API |
+| `demo_report.py` | Executable report generation example |
+| `demo_verif.py` | Executable verification example |
+| `make check` | Repository quality gate |
 
 `make check` covers:
 
-- formatting;
-- Ruff;
+- formatting (Ruff format);
+- Ruff lint;
 - Flake8;
-- docstring policy;
-- Mypy;
+- docstring policy (custom script);
+- Mypy strict;
 - cyclomatic complexity and logical line-count metrics;
 - Bandit;
 - dependency audit;
 - Pytest with 100% coverage.
 
-## 17. SRS-To-Design Traceability
+## 23. SRS-To-Design Traceability
 
 | Requirement | Design Element |
 |---|---|
@@ -402,92 +851,19 @@ Verification assets:
 | SRS-FR-015 | `section_numbers.NumberingContext`, `markdown._heading_title` |
 | SRS-FR-016 | `markdown.render_report`, `markdown.save_report` |
 | SRS-FR-017 | `table_of_contents.anchor_slug`, `section_numbers.numbered_title` |
-| SRS-FR-018 | `validation`, `content_validation`, `table_validation`, constructor checks |
+| SRS-FR-018 | `content_validation`, `table_validation`, `input_checks`, constructor checks |
+| SRS-FR-019 | `verification.api.verify_markdown`, `verification.api.verify_markdown_file` |
+| SRS-FR-020 | `verification.policy.MarkdownSource`, `verification.registry.MARKDOWN_COMPLIANCE` |
+| SRS-FR-021 | `verification.rules.markdown.*`, `verification.rules.gfm.*` |
+| SRS-FR-022 | `verification.settings.VerificationSettings`, `verification.api.verify_markdown(custom_rules=)` |
 
-## 18. Known Limitations
+## 24. Known Limitations
 
 | ID | Limitation | Rationale |
 |---|---|---|
 | LIM-001 | Frontmatter rendering is not a full YAML serializer. | Keeps runtime dependencies at zero. |
 | LIM-002 | Duplicate heading anchors are not disambiguated. | Not required for first package scope. |
 | LIM-003 | Markdown content is not escaped. | Caller owns Markdown semantics. |
-| LIM-004 | Image paths are not checked. | Avoids file system side effects during rendering. |
-
-## 19. Markdown Diagnostic Design
-
-Markdown diagnostics are intentionally separate from report rendering. Engines
-accept Markdown text, parse lightweight line and heading context, and apply
-registered rule objects.
-
-Primary modules:
-
-| Module | Responsibility |
-|---|---|
-| `diagnostics` | public diagnostic, context, protocol, and registry contracts |
-| `verification` | Markdown/GFM conformance verification engine |
-| `verification.rules.base` | base Markdown conformance diagnostics |
-| `verification.rules.gfm` | GitHub Flavored Markdown diagnostics |
-| `validation` | document content validation engine |
-| `validation.rules` | content and project-policy diagnostics |
-
-```mermaid
-flowchart TD
-    user[Caller] --> verifier[Verifier]
-    user --> validator[Validator]
-    verifier --> parser[parse_markdown]
-    validator --> parser
-    parser --> context[SourceContext]
-    verifier --> registry[RuleRegistry]
-    validator --> registry
-    registry --> rules[Rule]
-    rules --> diagnostics[Diagnostic]
-```
-
-```mermaid
-sequenceDiagram
-    participant Caller
-    participant Engine
-    participant Parser
-    participant Registry
-    participant Rule
-
-    Caller->>Engine: verify/validate(source, config, disabled)
-    Engine->>Parser: parse_markdown(source, config)
-    Parser-->>Engine: SourceContext
-    Engine->>Registry: enabled_rules(disabled)
-    loop enabled rules
-        Engine->>Rule: check(context)
-        Rule-->>Engine: diagnostics
-    end
-    Engine-->>Caller: sorted diagnostics
-```
-
-The extension ICD is deliberately small: any object implementing `rule_id`,
-`name`, and `check(context)` can be registered. `FunctionRule` adapts simple
-functions to that protocol. Verification rules check syntax and format;
-validation rules check content, metadata, headings, naming, and local policy.
-
-```mermaid
-classDiagram
-    class Rule {
-        +str rule_id
-        +str name
-        +check(context) tuple
-    }
-    class FunctionRule
-    class RuleRegistry
-    class Verifier
-    class Validator
-    Verifier --> RuleRegistry
-    Validator --> RuleRegistry
-    RuleRegistry --> Rule
-FunctionRule ..|> Rule
-```
-
-Rule numbering is owned by MkForge rather than markdownlint:
-
-| Prefix | Scope | Example |
-|---|---|---|
-| `MKV` | base Markdown verification | `MKV001` heading increment |
-| `MKG` | GitHub Flavored Markdown verification | `MKG003` table column count |
-| `MKC` | content validation | `MKC010` image alternate text |
+| LIM-004 | Image paths are not checked at render time. | Avoids file system side effects during rendering. |
+| LIM-005 | `markdownlint_remaining` is a compatibility facade. | Preserves test backward compatibility while splitting rules into individual modules. Targeted for replacement in a future refactoring milestone. |
+| LIM-006 | Rule execution order is fixed by `registry.py`. | First-occurrence `consistent` style options depend on order; randomizing would change behavior. |

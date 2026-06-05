@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from mkforge.validation import require_tuple
+from mkforge.input_checks import require_tuple
 
 
 def validate_text_style(style: object) -> None:

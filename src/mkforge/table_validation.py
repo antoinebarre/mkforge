@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import cast
 
 from mkforge.errors import InvalidTableError
-from mkforge.validation import require_string, require_tuple
+from mkforge.input_checks import require_string, require_tuple
 
 
 def validate_table(headers: object, rows: object) -> None:

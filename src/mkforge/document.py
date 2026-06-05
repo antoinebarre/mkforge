@@ -7,7 +7,7 @@ from pathlib import Path
 
 from mkforge.errors import InvalidChildError
 from mkforge.headings import Chapter, _validate_title
-from mkforge.validation import require_bool, require_metadata
+from mkforge.input_checks import require_bool, require_metadata
 
 
 @dataclass
