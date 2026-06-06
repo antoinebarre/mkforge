@@ -30,10 +30,11 @@ evidence.
 | DSG-006 | Keep functions small enough for repository quality gates. |
 | DSG-007 | Keep verification orthogonal to report generation. |
 | DSG-008 | Make each conformance rule independently auditable. |
+| DSG-009 | Keep project-specific validation orthogonal to Markdown conformance verification. |
 
 ## 4. Architecture Overview
 
-MkForge is organized as two independent subsystems sharing the same package
+MkForge is organized as three independent subsystems sharing the same package
 namespace:
 
 **Report generation subsystem** — builds and renders structured Markdown
@@ -42,8 +43,11 @@ documents from Python objects.
 **Verification subsystem** — checks Markdown source text against Markdown,
 GFM, and MkForge-specific conformance rules.
 
+**Validation subsystem** — checks project-specific Markdown contracts such as
+required YAML frontmatter, ordered chapters, and reachable image targets.
+
 Each subsystem has its own entry points, data types, and internal module graph.
-They share no mutable state and no runtime coupling.
+They share no mutable state.
 
 ```plantuml
 @startuml architecture-overview
@@ -66,16 +70,22 @@ package "mkforge" {
     [rules.markdown]
     [rules.gfm]
   }
+  package "Validation" {
+    [validation]
+    [validation.markdown_contracts]
+  }
   [__init__] --> [document]
   [__init__] --> [content]
   [__init__] --> [errors]
   [__init__] --> [verification.api]
+  [__init__] --> [validation]
 }
 @enduml
 ```
 
-No module starts external processes, performs network access, or depends on
-third-party runtime libraries.
+No module starts external processes or depends on third-party runtime
+libraries. Remote image validation may perform bounded HTTP(S) requests after
+scheme and host safety checks.
 
 ## 5. Module Responsibilities
 
@@ -108,6 +118,13 @@ third-party runtime libraries.
 | `mkforge.verification.rules.gfm.*` | GFM001–GFM003 rules (one module each) |
 | `mkforge.verification.rules.markdown.md*` | Individual MD rule modules (one module per rule or cohesive group) |
 | `mkforge.verification.rules.markdown.mkf001_local_resource_exists` | MKF001 local resource resolution |
+
+### 5.3 Validation Modules
+
+| Module | Responsibility |
+|---|---|
+| `mkforge.validation` | Public validation API re-exports |
+| `mkforge.validation.markdown_contracts` | Boolean validation helpers for YAML frontmatter contracts, H2 chapter order, and local or remote image existence |
 
 ## 6. Static Structure — Report Generation
 
@@ -377,6 +394,34 @@ API -> API: filter disabled rules
 API -> API: sort by (line, column, rule_id)
 API -> VerificationReport: VerificationReport(rule_set_name, diagnostics)
 VerificationReport --> Caller: report
+@enduml
+```
+
+### 11.1 Runtime Validation Sequence
+
+```plantuml
+@startuml validation-sequence
+participant Caller
+participant "validate_markdown_yaml" as YAML
+participant "validate_markdown_chapters" as Chapters
+participant "validate_markdown_images" as Images
+participant "markdown_contracts" as Contracts
+
+Caller -> YAML: markdown, expected, strict
+YAML -> Contracts: parse frontmatter
+Contracts --> YAML: bool
+YAML --> Caller: bool
+
+Caller -> Chapters: markdown, expected, strict
+Chapters -> Contracts: extract H2 headings outside fences
+Contracts --> Chapters: bool
+Chapters --> Caller: bool
+
+Caller -> Images: markdown, base_path, timeout
+Images -> Contracts: extract image targets outside fences
+Contracts -> Contracts: check local paths or safe HTTP(S) URLs
+Contracts --> Images: bool
+Images --> Caller: bool
 @enduml
 ```
 
@@ -786,7 +831,7 @@ to `verify_markdown` do not reconstruct the policy.
 
 ## 22. Test and Verification Design
 
-Verification assets:
+Quality and verification assets:
 
 | Asset | Purpose |
 |---|---|
@@ -795,8 +840,10 @@ Verification assets:
 | `tests/test_helpers.py` | Helper and save behavior |
 | `tests/test_validation.py` | Validation and explicit errors |
 | `tests/test_markdown_verification.py` | Verification subsystem rules and API |
+| `tests/test_markdown_validation.py` | Markdown validation contracts and boolean APIs |
 | `demo_report.py` | Executable report generation example |
 | `demo_verif.py` | Executable verification example |
+| `demo_validation.py` | Executable validation example |
 | `make check` | Repository quality gate |
 
 `make check` covers:
@@ -835,8 +882,7 @@ Verification assets:
 | SRS-FR-018 | `content._validate_*`, `document._validate_*`, `input_checks.*` |
 | SRS-FR-019 | `verification.api.verify_markdown`, `verification.api.verify_markdown_file` |
 | SRS-FR-020 | `verification.policy.MarkdownSource`, `verification.registry.MARKDOWN_COMPLIANCE` |
-| SRS-FR-021 | `verification.rules.markdown.*`, `verification.rules.gfm.*` |
-| SRS-FR-022 | `verification.settings.VerificationSettings`, `verification.api.verify_markdown(custom_rules=)` |
+| SRS-FR-021 | `validation.markdown_contracts` |
 
 ## 24. Known Limitations
 

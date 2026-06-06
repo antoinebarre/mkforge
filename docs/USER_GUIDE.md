@@ -42,6 +42,11 @@ reports programmatically. You compose a tree of typed objects, then call
   - [Disabling rules](#disabling-rules)
   - [Custom rules](#custom-rules)
   - [TOML settings](#toml-settings)
+- [Markdown Validation](#markdown-validation)
+  - [Validate YAML frontmatter](#validate-yaml-frontmatter)
+  - [Validate chapter order](#validate-chapter-order)
+  - [Validate images](#validate-images)
+  - [Combine validation gates](#combine-validation-gates)
 - [Error Reference](#error-reference)
 - [Complete Example](#complete-example)
 
@@ -693,6 +698,165 @@ Supported settings keys:
 
 ---
 
+## Markdown Validation
+
+Validation checks project-specific document contracts and returns booleans.
+It is intentionally separate from Markdown verification:
+
+- verification checks Markdown/GFM conformance and returns diagnostics;
+- validation checks expected content contracts and returns `True` or `False`.
+
+The public validation helpers are:
+
+```python
+from mkforge import (
+    validate_markdown_chapters,
+    validate_markdown_images,
+    validate_markdown_yaml,
+)
+```
+
+### Validate YAML frontmatter
+
+`validate_markdown_yaml(markdown, expected, strict=False)` checks the YAML
+frontmatter block at the start of a Markdown document.
+
+```python
+from mkforge import validate_markdown_yaml
+
+markdown = """---
+title: Release Notes
+draft: false
+version: 3
+tags:
+  - release
+  - docs
+---
+
+# Release Notes
+"""
+
+validate_markdown_yaml(markdown, {"draft": False})          # True
+validate_markdown_yaml(markdown, {"draft": bool})           # True
+validate_markdown_yaml(markdown, {"draft": "false"})        # False
+```
+
+By default, the expected mapping is a minimum contract: the document may
+contain extra frontmatter keys.
+
+```python
+validate_markdown_yaml(
+    markdown,
+    {"draft": False, "version": int},
+)  # True
+```
+
+With `strict=True`, the document must contain exactly the expected keys.
+
+```python
+validate_markdown_yaml(
+    markdown,
+    {
+        "title": "Release Notes",
+        "draft": False,
+        "version": 3,
+        "tags": ["release", "docs"],
+    },
+    strict=True,
+)  # True
+```
+
+Expected concrete values are checked by type and value. Expected Python types
+such as `bool`, `int`, or `str` check only the parsed value type.
+
+### Validate chapter order
+
+`validate_markdown_chapters(markdown, expected, strict=False)` checks H2
+chapter titles, meaning headings written as `## Chapter`.
+
+```python
+from mkforge import validate_markdown_chapters
+
+markdown = """# Report
+
+## Context
+
+## Architecture
+
+## Tests
+"""
+
+validate_markdown_chapters(markdown, ("Context", "Tests"))  # True
+validate_markdown_chapters(markdown, ("Tests", "Context"))  # False
+```
+
+By default, expected chapters must appear in order, but other chapters may
+exist between them. With `strict=True`, the complete H2 chapter sequence must
+match exactly.
+
+```python
+validate_markdown_chapters(
+    markdown,
+    ("Context", "Architecture", "Tests"),
+    strict=True,
+)  # True
+```
+
+### Validate images
+
+`validate_markdown_images(markdown, base_path=None, timeout=5.0)` checks every
+Markdown image reference outside fenced code blocks.
+
+```python
+from mkforge import validate_markdown_images
+
+markdown = "# Report\n\n![Chart](assets/chart.png)\n"
+
+validate_markdown_images(markdown, base_path="docs/report.md")
+```
+
+Local images are resolved relative to `base_path`. If `base_path` is a file,
+images resolve from its parent directory. If `base_path` is omitted, relative
+paths resolve from the current working directory.
+
+Remote images are checked with HTTP `HEAD`, then HTTP `GET` as a fallback.
+Only HTTP(S) URLs are contacted. Private and loopback hosts are rejected before
+network access.
+
+```python
+validate_markdown_images(
+    "# Remote\n\n![Logo](https://www.python.org/static/img/python-logo.png)\n",
+    timeout=3.0,
+)
+```
+
+Remote checks depend on actual network access and server behavior.
+
+### Combine validation gates
+
+The helpers are boolean by design, so they compose naturally in scripts or CI
+jobs:
+
+```python
+ok = (
+    validate_markdown_yaml(markdown, {"draft": False, "version": int})
+    and validate_markdown_chapters(
+        markdown,
+        ("Context", "Architecture", "Tests"),
+        strict=True,
+    )
+    and validate_markdown_images(markdown, base_path="docs/report.md")
+)
+```
+
+Run the executable validation demo for a complete walkthrough:
+
+```bash
+uv run python demo_validation.py
+```
+
+---
+
 ## Error Reference
 
 | Exception | When raised | Key attributes |
@@ -711,7 +875,7 @@ All exceptions inherit from `MkForgeError` → `Exception`.
 
 The following script generates a full CI quality report with
 frontmatter, TOC, numbering, all content element types, and
-Markdown verification of its own output.
+Markdown verification and validation of its own output.
 
 ```python
 from pathlib import Path
@@ -731,6 +895,8 @@ from mkforge import (
     Table,
     Text,
     VerificationSettings,
+    validate_markdown_chapters,
+    validate_markdown_yaml,
     verify_markdown,
 )
 
@@ -802,6 +968,13 @@ if result.passed:
 else:
     for d in result.diagnostics:
         print(f"  {d.rule_id} line {d.line}: {d.message}")
+
+# Validate project-specific document contracts
+is_valid = (
+    validate_markdown_yaml(markdown, {"draft": False})
+    and validate_markdown_chapters(markdown, ("Summary", "Lint", "Tests"))
+)
+print(f"Validation passed: {is_valid}")
 
 # Save to disk
 output = Path("output/ci_quality_report.md")

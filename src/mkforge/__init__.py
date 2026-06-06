@@ -22,6 +22,11 @@ from mkforge.errors import (
     MissingAssetError,
     ReportDepthError,
 )
+from mkforge.validation import (
+    validate_markdown_chapters,
+    validate_markdown_images,
+    validate_markdown_yaml,
+)
 from mkforge.verification import (
     Diagnostic,
     MarkdownLine,
@@ -61,6 +66,9 @@ __all__ = [
     "Text",
     "VerificationReport",
     "VerificationSettings",
+    "validate_markdown_chapters",
+    "validate_markdown_images",
+    "validate_markdown_yaml",
     "verify_markdown",
     "verify_markdown_file",
 ]

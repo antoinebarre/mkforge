@@ -7,7 +7,7 @@ classes, public exceptions, module-level helpers, complete examples, and UML
 diagrams.
 
 Runnable demonstrations: `demo_report.py` (report generation), `demo_verif.py`
-(Markdown verification).
+(Markdown verification), and `demo_validation.py` (Markdown validation).
 
 ## 2. Import Model
 
@@ -21,6 +21,9 @@ from mkforge import (
     Report,
     Section,
     Table,
+    validate_markdown_chapters,
+    validate_markdown_images,
+    validate_markdown_yaml,
     verify_markdown,
     verify_markdown_file,
 )
@@ -43,6 +46,16 @@ from mkforge import (
     MarkdownSource,
     VerificationReport,
     VerificationSettings,
+)
+```
+
+Validation-specific imports (all re-exported from `mkforge`):
+
+```python
+from mkforge import (
+    validate_markdown_chapters,
+    validate_markdown_images,
+    validate_markdown_yaml,
 )
 ```
 
@@ -1085,6 +1098,86 @@ report = verify_markdown(
 
 ---
 
+## 8.9 Validation API
+
+Module: `mkforge.validation`
+
+Exported by: `mkforge`
+
+Validation functions return booleans for project-specific document contracts.
+They do not emit Markdown/GFM compliance diagnostics.
+
+```python
+validate_markdown_yaml(
+    markdown: str,
+    expected: Mapping[str, object],
+    *,
+    strict: bool = False,
+) -> bool
+```
+
+Checks YAML frontmatter.  In non-strict mode, the document may contain extra
+frontmatter keys.  In strict mode, the keys must exactly match.  Expected
+values are checked by type and value; expected Python types such as `bool`
+check only the parsed value type.
+
+```python
+validate_markdown_chapters(
+    markdown: str,
+    expected: Sequence[str],
+    *,
+    strict: bool = False,
+) -> bool
+```
+
+Checks H2 chapter titles in order.  In non-strict mode, expected chapters must
+appear as an ordered subsequence.  In strict mode, the H2 chapter sequence must
+match exactly.
+
+```python
+validate_markdown_images(
+    markdown: str,
+    *,
+    base_path: str | Path | None = None,
+    timeout: float = 5.0,
+) -> bool
+```
+
+Checks every Markdown image target outside fenced code blocks.  Local paths are
+resolved relative to `base_path` when provided, or the current directory when
+omitted.  Remote HTTP(S) images are checked with a HEAD request and fallback
+GET request.
+
+Example:
+
+```python
+from mkforge import (
+    validate_markdown_chapters,
+    validate_markdown_images,
+    validate_markdown_yaml,
+)
+
+markdown = """---
+title: Release
+draft: false
+---
+
+# Release
+
+## Context
+
+![Chart](assets/chart.png)
+"""
+
+ok = (
+    validate_markdown_yaml(markdown, {"draft": False})
+    and validate_markdown_chapters(markdown, ("Context",))
+    and validate_markdown_images(markdown, base_path="doc/release.md")
+)
+```
+
+---
+
 ## 9. Built-in Rule Reference
 
 ### 9.1 Rule Identifier Prefixes
@@ -1422,10 +1515,16 @@ package "Verification" {
   [rules.gfm]
 }
 
+package "Validation" {
+  [validation]
+  [validation.markdown_contracts]
+}
+
 [__init__] --> [document]
 [__init__] --> [content]
 [__init__] --> [errors]
 [__init__] --> [verification.api]
+[__init__] --> [validation]
 
 [document] --> [content]
 [document] --> [errors]
@@ -1443,6 +1542,8 @@ package "Verification" {
 [verification.registry] --> [verification.policy]
 [verification.registry] --> [rules.markdown]
 [verification.registry] --> [rules.gfm]
+[validation] --> [validation.markdown_contracts]
+[validation.markdown_contracts] --> [verification.source_scan]
 @enduml
 ```
 
@@ -1536,6 +1637,34 @@ stop
 @enduml
 ```
 
+### 17.1 UML: Markdown Validation Sequence
+
+```plantuml
+@startuml markdown-validation-sequence
+participant User
+participant "validate_markdown_yaml" as YAML
+participant "validate_markdown_chapters" as Chapters
+participant "validate_markdown_images" as Images
+participant "validation.markdown_contracts" as Contracts
+
+User -> YAML: markdown, expected, strict
+YAML -> Contracts: parse frontmatter
+Contracts --> YAML: bool
+YAML --> User: bool
+
+User -> Chapters: markdown, expected, strict
+Chapters -> Contracts: extract H2 headings
+Contracts --> Chapters: bool
+Chapters --> User: bool
+
+User -> Images: markdown, base_path, timeout
+Images -> Contracts: extract image targets
+Contracts -> Contracts: local exists or safe HTTP(S) reachable
+Contracts --> Images: bool
+Images --> User: bool
+@enduml
+```
+
 ## 18. Complete Demos
 
 ### Report generation
@@ -1557,3 +1686,13 @@ uv run python demo_verif.py
 Exercises: clean GFM source, mixed conformance violations, markdownlint-derived
 rules, file verification with resource checks, custom rules, disabled rules,
 rule option overrides, multiple custom rules, virtual `source_path`.
+
+### Validation
+
+```bash
+uv run python demo_validation.py
+```
+
+Exercises: YAML frontmatter contracts, strict and minimum matching, H2 chapter
+order checks, local image existence, remote HTTP(S) image checks, and a combined
+boolean validation gate.

@@ -35,6 +35,8 @@ MkForge shall include:
 - table of contents generation;
 - automatic heading numbering;
 - string rendering and file saving;
+- Markdown conformance verification;
+- Markdown contract validation helpers;
 - explicit validation errors.
 
 MkForge shall not include:
@@ -82,9 +84,10 @@ requiring a project configuration file.
 | ID | Assumption |
 |---|---|
 | ASM-001 | The caller is responsible for choosing semantically correct report content. |
-| ASM-002 | Image paths are rendered as provided and are not validated or copied. |
+| ASM-002 | Image paths are rendered as provided and are not validated or copied during rendering. |
 | ASM-003 | Markdown consumers are responsible for resolving generated GFM anchors. |
 | ASM-004 | Metadata dictionaries preserve insertion order as guaranteed by Python 3.12 dictionaries. |
+| ASM-005 | Remote image validation depends on external network access and remote server behavior. |
 
 ## 8. Constraints
 
@@ -112,6 +115,11 @@ missing parent directories.
 
 `Report.render()` and `mkforge.rendering.render_report(report)` shall return a
 single Markdown string.
+
+### 9.4 Markdown Validation Interface
+
+`mkforge.validation` shall expose boolean helpers that evaluate Markdown source
+text against caller-supplied contracts.
 
 ## 10. Functional Requirements
 
@@ -370,7 +378,8 @@ The repository shall include:
 - a Software Design Description;
 - an API reference with examples;
 - UML diagrams explaining object model, modules, and rendering flow;
-- a runnable `demo_report.py`.
+- runnable `demo_report.py`, `demo_verif.py`, and `demo_validation.py`
+  scripts.
 
 ## 12. Data Requirements
 
@@ -387,7 +396,7 @@ The repository shall include:
 | Table rows | `tuple[tuple[str, ...], ...]` | width equals headers | GFM rows |
 | Table columns | `Mapping[str, tuple[str, ...]]` | all columns same length | alternate GFM table input |
 | List items | `tuple[str, ...]` | non-empty | Markdown list |
-| Image path | `str` | not validated | Markdown image link |
+| Image path | `str` | not validated during rendering; can be checked by `validate_markdown_images` | Markdown image link |
 | Block quote content | `str` | not validated | quoted lines |
 
 ## 13. Verification Requirements
@@ -406,10 +415,12 @@ The authoritative local verification command is:
 make check
 ```
 
-The demonstration command is:
+The demonstration commands are:
 
 ```bash
 uv run python demo_report.py
+uv run python demo_verif.py
+uv run python demo_validation.py
 ```
 
 ## 14. Public API
@@ -441,6 +452,9 @@ The package shall export these public names from `mkforge`:
 | `MarkdownSource` | verification source context |
 | `VerificationReport` | verification result |
 | `verify_markdown` | verification helper |
+| `validate_markdown_yaml` | YAML frontmatter validation helper |
+| `validate_markdown_chapters` | chapter order validation helper |
+| `validate_markdown_images` | local and remote image validation helper |
 
 ## 15. Requirement Traceability Matrix
 
@@ -466,7 +480,8 @@ The package shall export these public names from `mkforge`:
 | SRS-FR-018 | `content._validate_*`, `document._validate_*`, `input_checks.*` | `tests/test_validation.py` |
 | SRS-FR-019 | `verification` | `tests/test_markdown_verification.py` |
 | SRS-FR-020 | `MarkdownRule`, `VerificationSettings` | `tests/test_markdown_verification.py` |
-| SRS-NFR-001..007 | package and repository checks | `make check`, `demo_report.py`, document review |
+| SRS-FR-021 | `validation.markdown_contracts` | `tests/test_markdown_validation.py`, `demo_validation.py` |
+| SRS-NFR-001..007 | package and repository checks | `make check`, demos, document review |
 
 ## 16. Open Items
 
@@ -506,3 +521,25 @@ Acceptance criteria:
 - Custom rules receive a `MarkdownSource`.
 - Custom rules return `tuple[Diagnostic, ...]`.
 - Custom rules run after built-in verification rules.
+
+### SRS-FR-021 Markdown Validation Contracts
+
+MkForge shall provide boolean helpers for project-specific Markdown validation.
+
+Acceptance criteria:
+
+- `validate_markdown_yaml(markdown, expected)` returns `True` when frontmatter
+  contains at least the expected keys with matching values or value types.
+- `validate_markdown_yaml(..., strict=True)` returns `True` only when the
+  frontmatter keys exactly match the expected keys.
+- `validate_markdown_chapters(markdown, expected)` returns `True` when H2
+  chapter titles contain the expected titles in order.
+- `validate_markdown_chapters(..., strict=True)` returns `True` only when the
+  full H2 chapter sequence exactly matches the expected sequence.
+- `validate_markdown_images(markdown, base_path=...)` returns `True` only when
+  every local Markdown image target exists.
+- `validate_markdown_images` checks HTTP(S) image URLs and returns `False` for
+  unreachable, private, loopback, unsupported, or hostless remote targets.
+- Image validation ignores Markdown image syntax inside fenced code blocks.
+- Validation helpers return booleans and do not emit verification diagnostics.
+- A runnable `demo_validation.py` shall demonstrate all validation helpers.

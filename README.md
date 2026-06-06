@@ -100,6 +100,34 @@ Verification covers pure Markdown and GitHub Flavored Markdown conformance in a
 single pass. Custom rule callables can be appended for one verification call
 without mutating the built-in policy.
 
+## Markdown Validation
+
+```python
+from mkforge import (
+    validate_markdown_chapters,
+    validate_markdown_images,
+    validate_markdown_yaml,
+)
+
+ok = (
+    validate_markdown_yaml(markdown, {"draft": False})
+    and validate_markdown_chapters(markdown, ("Summary", "Details"))
+    and validate_markdown_images(markdown, base_path="docs/report.md")
+)
+```
+
+Validation answers project-specific boolean questions: expected YAML
+frontmatter, required H2 chapters in order, and local or HTTP(S) image
+existence. Use `strict=True` for exact YAML keys or exact chapter sequences.
+
+Runnable demos:
+
+```bash
+uv run python demo_report.py
+uv run python demo_verif.py
+uv run python demo_validation.py
+```
+
 ## Relationship With Scribpy
 
 MkForge is intended to be independent from Scribpy.
