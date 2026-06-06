@@ -447,6 +447,7 @@ Signature:
 
 ```python
 Table(headers: tuple[str, ...], rows: tuple[tuple[str, ...], ...] = ())
+Table.from_columns(columns: Mapping[str, tuple[str, ...]])
 ```
 
 Raises:
@@ -455,7 +456,10 @@ Raises:
 |---|---|
 | No headers | `InvalidTableError` |
 | Row width differs from header count | `InvalidTableError` |
+| Column lengths differ in `from_columns` | `InvalidTableError` |
 | Non-tuple headers or rows | `TypeError` |
+| Non-mapping `from_columns` input | `TypeError` |
+| Non-tuple column value | `TypeError` |
 | Non-string header or cell | `TypeError` |
 
 Example:
@@ -469,6 +473,19 @@ table = Table(
         ("format", "pass"),
         ("tests", "pass"),
     ),
+)
+```
+
+Column-oriented construction:
+
+```python
+from mkforge import Table
+
+table = Table.from_columns(
+    {
+        "Check": ("format", "tests"),
+        "Result": ("pass", "pass"),
+    },
 )
 ```
 

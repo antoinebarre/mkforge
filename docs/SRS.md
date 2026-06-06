@@ -220,9 +220,15 @@ MkForge shall expose `Table`.
 Acceptance criteria:
 
 - A table with headers renders a GFM pipe table.
+- `Table.from_columns()` accepts column-oriented data and renders equivalent
+  GFM rows.
 - Empty headers raise `InvalidTableError`.
 - Any row whose width differs from the header width raises `InvalidTableError`.
+- Any `from_columns` column whose length differs from the others raises
+  `InvalidTableError`.
 - Non-tuple headers, rows, or row values raise `TypeError` with field context.
+- Non-mapping `from_columns` input or non-tuple column values raise
+  `TypeError` with field context.
 - Non-string cells raise `TypeError` with field and index context.
 
 ### SRS-FR-010 Lists
@@ -379,6 +385,7 @@ The repository shall include:
 | Text style | literal style string | type checked | inline GFM |
 | Table headers | `tuple[str, ...]` | non-empty | GFM header |
 | Table rows | `tuple[tuple[str, ...], ...]` | width equals headers | GFM rows |
+| Table columns | `Mapping[str, tuple[str, ...]]` | all columns same length | alternate GFM table input |
 | List items | `tuple[str, ...]` | non-empty | Markdown list |
 | Image path | `str` | not validated | Markdown image link |
 | Block quote content | `str` | not validated | quoted lines |

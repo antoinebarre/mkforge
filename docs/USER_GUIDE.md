@@ -325,6 +325,19 @@ Table(
 )
 ```
 
+When your data is naturally organized by column, use `Table.from_columns`.
+Mapping order defines the rendered column order.
+
+```python
+Table.from_columns(
+    {
+        "Name": ("Alice", "Bob"),
+        "Score": ("95", "82"),
+        "Grade": ("A", "B"),
+    },
+)
+```
+
 Renders as:
 
 ```markdown
@@ -335,7 +348,9 @@ Renders as:
 ```
 
 Cell strings may be empty. A row with the wrong number of cells raises
-`InvalidTableError`. An empty `headers` tuple raises `InvalidTableError`.
+`InvalidTableError`. `Table.from_columns` also raises `InvalidTableError`
+when columns have different lengths. An empty `headers` tuple raises
+`InvalidTableError`.
 
 ### BulletList and NumberedList
 

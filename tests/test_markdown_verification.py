@@ -14,6 +14,7 @@ from mkforge import (
     Diagnostic,
     MarkdownLine,
     MarkdownSource,
+    Table,
     VerificationReport,
     verify_markdown,
     verify_markdown_file,
@@ -60,6 +61,23 @@ def test_verification_report_passes_when_no_diagnostics() -> None:
     report = verify_markdown(source)
 
     expect(isinstance(report, VerificationReport), report)
+    expect(report.passed, report)
+    expect(report.diagnostics == (), report)
+
+
+def test_verification_accepts_table_from_columns_markdown() -> None:
+    """Requirement: column-oriented tables render compliant Markdown."""
+    table = Table.from_columns(
+        {
+            "Rule": ("MD018", "GFM001"),
+            "Scope": ("heading spacing", "table separator"),
+            "Status": ("verified", "verified"),
+        },
+    )
+    source = f"# Verification Matrix\n\n{table.render()}\n"
+
+    report = verify_markdown(source)
+
     expect(report.passed, report)
     expect(report.diagnostics == (), report)
 

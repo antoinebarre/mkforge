@@ -82,6 +82,48 @@ def test_validation_rejects_invalid_content_data() -> None:
         Image("")
 
 
+def test_validation_accepts_table_from_columns_contract() -> None:
+    """Requirement: column-oriented tables validate and transpose content."""
+    table = Table.from_columns(
+        {
+            "Rule": ("MD018", "GFM001"),
+            "Scope": ("heading spacing", "table separator"),
+            "Status": ("verified", "verified"),
+        },
+    )
+
+    if table.headers != ("Rule", "Scope", "Status"):
+        raise AssertionError(table.headers)
+    if table.rows != (
+        ("MD018", "heading spacing", "verified"),
+        ("GFM001", "table separator", "verified"),
+    ):
+        raise AssertionError(table.rows)
+
+
+def test_validation_rejects_invalid_table_from_columns_data() -> None:
+    """Requirement: column-oriented tables reject invalid construction data."""
+    with pytest.raises(TypeError, match="Table columns must be a mapping"):
+        Table.from_columns((("Rule", ("MD018",)),))  # type: ignore[arg-type]
+    with pytest.raises(
+        InvalidTableError,
+        match="Table headers cannot be empty",
+    ):
+        Table.from_columns({})
+    with pytest.raises(TypeError, match="Table column Rule must be a tuple"):
+        Table.from_columns({"Rule": ["MD018"]})  # type: ignore[dict-item]
+    with pytest.raises(
+        TypeError,
+        match=r"Table column Rule\[1\] must be a string",
+    ):
+        Table.from_columns({"Rule": ("MD018", 1)})  # type: ignore[dict-item]
+    with pytest.raises(
+        InvalidTableError,
+        match="Table columns must all have the same number of cells",
+    ):
+        Table.from_columns({"Rule": ("MD018",), "Scope": ("a", "b")})
+
+
 def test_validation_rejects_too_deep_sections() -> None:
     """Requirement: rendering rejects section nesting beyond H6."""
     nested = Section("1").add(

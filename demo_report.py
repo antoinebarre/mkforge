@@ -112,15 +112,18 @@ def _quality_chapter() -> Chapter:
     """
     return Chapter("Quality Evidence").add(
         Section("Check Matrix").add(
-            Table(
-                headers=("Check", "Purpose", "Expected"),
-                rows=(
-                    ("format", "Stable code style", "pass"),
-                    ("ruff", "Static lint rules", "pass"),
-                    ("mypy", "Strict typing", "pass"),
-                    ("pytest", "Behavior and coverage", "100%"),
-                    ("metrics", "Complexity and maintainability", "pass"),
-                ),
+            Table.from_columns(
+                {
+                    "Check": ("format", "ruff", "mypy", "pytest", "metrics"),
+                    "Purpose": (
+                        "Stable code style",
+                        "Static lint rules",
+                        "Strict typing",
+                        "Behavior and coverage",
+                        "Complexity and maintainability",
+                    ),
+                    "Expected": ("pass", "pass", "pass", "100%", "pass"),
+                },
             ),
         ),
         Section("Risk Review").add(

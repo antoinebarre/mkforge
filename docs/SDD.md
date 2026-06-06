@@ -158,6 +158,7 @@ class CodeBlock {
 class Table {
   +headers: tuple[str, ...]
   +rows: tuple[tuple[str, ...], ...]
+  +from_columns(columns) Table
 }
 class BulletList { +items: tuple[str, ...] }
 class NumberedList { +items: tuple[str, ...] }
@@ -560,7 +561,7 @@ frozen because they are value-like and do not need composition methods.
 | `Link` | `url`, `text`, `title` | none | inline (inside `Paragraph` only) |
 | `Paragraph` | plain string or inline tuple | empty plain string rejected; inline items must be `Text`, `LineBreak`, or `Link` | block |
 | `CodeBlock` | code, language | none | block |
-| `Table` | headers, rows | headers required, row width checked | block |
+| `Table` | headers, rows | headers required, row width checked; `from_columns` checks column lengths | block |
 | `BulletList` | items | non-empty | block |
 | `NumberedList` | items | non-empty | block |
 | `Image` | path, alt, title | none | block |

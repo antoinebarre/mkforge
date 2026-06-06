@@ -88,6 +88,10 @@ These instructions apply to the whole repository.
   separate ``*_validation.py``, ``*_rendering.py``, or ``*_helpers.py``
   satellites when the behavior is inseparable from its host module.
 - Write tests for new behavior.
+- For new public behavior, add targeted validation tests for construction and
+  input contracts, targeted verification tests for rendered Markdown or GFM
+  conformance when applicable, and end-to-end tests only as workflow coverage;
+  do not rely on end-to-end tests alone.
 - Maintain 100% test coverage.
 - Test function docstrings must state the requirement being verified.
 - Every module, function, class, method, and test must include a strict

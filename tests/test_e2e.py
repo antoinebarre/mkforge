@@ -326,6 +326,29 @@ def test_e2e_table_headers_only_renders_two_lines() -> None:
         raise AssertionError(lines)
 
 
+def test_e2e_table_from_columns_renders_rows() -> None:
+    """Requirement: Table can be built from column-oriented data.
+
+    Users often hold tabular data as named columns.  The class method
+    transposes those columns into GFM rows while preserving header order.
+    """
+    table = Table.from_columns(
+        {
+            "Check": ("format", "tests"),
+            "Status": ("pass", "pass"),
+        },
+    )
+    expected = (
+        "| Check | Status |\n"
+        "| --- | --- |\n"
+        "| format | pass |\n"
+        "| tests | pass |"
+    )
+    result = table.render()
+    if result != expected:
+        raise AssertionError(result)
+
+
 def test_e2e_wif_paragraph_empty_string_raises() -> None:
     """Requirement: Paragraph rejects an empty plain string.
 
@@ -443,6 +466,52 @@ def test_e2e_wif_table_non_tuple_headers_raises() -> None:
     """
     with pytest.raises(TypeError, match="Table headers must be a tuple"):
         Table(["A", "B"])  # type: ignore[arg-type]
+
+
+def test_e2e_wif_table_from_columns_empty_mapping_raises() -> None:
+    """Requirement: Table.from_columns requires at least one column.
+
+    What-if: a caller passes an empty mapping.  The result would have no
+    headers, which is invalid for a GFM pipe table.
+    """
+    with pytest.raises(
+        InvalidTableError,
+        match="Table headers cannot be empty",
+    ):
+        Table.from_columns({})
+
+
+def test_e2e_wif_table_from_columns_non_mapping_raises() -> None:
+    """Requirement: Table.from_columns requires a mapping.
+
+    What-if: a caller passes row data or another sequence.  Column-oriented
+    construction must fail with a clear boundary error.
+    """
+    with pytest.raises(TypeError, match="Table columns must be a mapping"):
+        Table.from_columns([("A", ("x",))])  # type: ignore[arg-type]
+
+
+def test_e2e_wif_table_from_columns_non_tuple_column_raises() -> None:
+    """Requirement: Table.from_columns column values must be tuples.
+
+    What-if: a caller passes a list of cells.  The Table API preserves
+    immutable tuple inputs, matching the row-oriented constructor.
+    """
+    with pytest.raises(TypeError, match="Table column A must be a tuple"):
+        Table.from_columns({"A": ["x"]})  # type: ignore[dict-item]
+
+
+def test_e2e_wif_table_from_columns_mismatched_lengths_raises() -> None:
+    """Requirement: Table.from_columns columns must have equal lengths.
+
+    What-if: one column contains fewer cells.  The data cannot be transposed
+    into rectangular GFM rows, so construction raises InvalidTableError.
+    """
+    with pytest.raises(
+        InvalidTableError,
+        match="Table columns must all have the same number of cells",
+    ):
+        Table.from_columns({"A": ("x",), "B": ("y", "z")})
 
 
 # ---------------------------------------------------------------------------

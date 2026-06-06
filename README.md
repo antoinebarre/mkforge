@@ -75,13 +75,11 @@ report = Report(
     Chapter("Summary").add(
         Section("Checks").add(
             Paragraph("All checks passed."),
-            Table(
-                headers=("Check", "Status"),
-                rows=(
-                    ("format", "pass"),
-                    ("lint", "pass"),
-                    ("tests", "pass"),
-                ),
+            Table.from_columns(
+                {
+                    "Check": ("format", "lint", "tests"),
+                    "Status": ("pass", "pass", "pass"),
+                },
             ),
         ),
     ),

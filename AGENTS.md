@@ -88,6 +88,10 @@ These instructions apply to the whole repository.
 
 - Maintain 100% test coverage.
 - Write tests for all new behavior.
+- For new public behavior, add targeted validation tests for construction and
+  input contracts, targeted verification tests for rendered Markdown or GFM
+  conformance when applicable, and end-to-end tests only as workflow coverage;
+  do not rely on end-to-end tests alone.
 - Test function docstrings must state the requirement being verified.
 - Every module, function, class, method, and test must include a strict
   Google-style docstring, including private functions and classes.
