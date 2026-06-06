@@ -14,6 +14,7 @@ import pytest
 
 from mkforge import (
     validate_markdown_chapters,
+    validate_markdown_headings,
     validate_markdown_images,
     validate_markdown_yaml,
 )
@@ -81,6 +82,56 @@ def test_validation_chapters_rejects_wrong_order_and_strict_mismatch() -> None:
         raise AssertionError(markdown)
 
 
+def test_validation_headings_accepts_ordered_level_contract() -> None:
+    """Requirement: heading validation checks title order and levels."""
+    markdown = (
+        "# Report\n\n"
+        "## Context\n\n"
+        "### Architecture\n\n"
+        "### Tests\n\n"
+        "## Conclusion\n"
+    )
+
+    valid = validate_markdown_headings(
+        markdown,
+        ((2, "Context"), (3, "Tests"), (2, "Conclusion")),
+    )
+
+    if not valid:
+        raise AssertionError(markdown)
+
+
+def test_validation_headings_rejects_wrong_level_and_order() -> None:
+    """Requirement: heading validation rejects wrong levels and order."""
+    markdown = "# Report\n\n## Context\n\n### Architecture\n\n### Tests\n"
+
+    if validate_markdown_headings(markdown, ((3, "Context"),)):
+        raise AssertionError(markdown)
+    if validate_markdown_headings(
+        markdown,
+        ((3, "Tests"), (2, "Context")),
+    ):
+        raise AssertionError(markdown)
+
+
+def test_validation_headings_enforces_strict_full_sequence() -> None:
+    """Requirement: strict heading validation checks the full sequence."""
+    markdown = "# Report\n\n## Context\n\n### Tests\n"
+
+    if not validate_markdown_headings(
+        markdown,
+        ((1, "Report"), (2, "Context"), (3, "Tests")),
+        strict=True,
+    ):
+        raise AssertionError(markdown)
+    if validate_markdown_headings(
+        markdown,
+        ((2, "Context"), (3, "Tests")),
+        strict=True,
+    ):
+        raise AssertionError(markdown)
+
+
 def test_validation_images_accepts_existing_local_and_remote_targets(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -126,6 +177,16 @@ def test_validation_public_inputs_fail_fast() -> None:
         validate_markdown_yaml("", [])  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="expected chapters"):
         validate_markdown_chapters("", "Intro")
+    with pytest.raises(TypeError, match="expected headings"):
+        validate_markdown_headings("", "Intro")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match=r"expected headings\[0\]"):
+        validate_markdown_headings("", ["Intro"])  # type: ignore[list-item]
+    with pytest.raises(TypeError, match="level must be an int"):
+        validate_markdown_headings("", [(True, "Intro")])
+    with pytest.raises(ValueError, match="between 1 and 6"):
+        validate_markdown_headings("", [(7, "Intro")])
+    with pytest.raises(ValueError, match="title cannot be empty"):
+        validate_markdown_headings("", [(2, " ")])
     with pytest.raises(ValueError, match="base_path cannot be empty"):
         validate_markdown_images("", base_path="")
     with pytest.raises(TypeError, match="timeout must be a number"):

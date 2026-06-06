@@ -15,15 +15,17 @@ Users need small boolean helpers that can be used in CI or scripts without
 having to inspect diagnostics:
 
 - validate that YAML frontmatter contains expected keys and values;
-- validate that chapters are present in the expected order;
+- validate that H2 chapters are present in the expected order;
+- validate that headings match expected `(level, title)` pairs in order;
 - validate that every Markdown image target exists locally or remotely.
 
 ## Decision
 
-Add a new `mkforge.validation` package exposing three focused functions:
+Add a new `mkforge.validation` package exposing four focused functions:
 
 - `validate_markdown_yaml(markdown, expected, strict=False) -> bool`
 - `validate_markdown_chapters(markdown, expected, strict=False) -> bool`
+- `validate_markdown_headings(markdown, expected, strict=False) -> bool`
 - `validate_markdown_images(markdown, base_path=None, timeout=5.0) -> bool`
 
 `strict=False` means "at least this contract".  `strict=True` means "exactly
@@ -33,6 +35,8 @@ this contract" for the checked surface:
   keys exactly.
 - Chapter strict mode requires the document H2 chapter sequence to match the
   expected sequence exactly.
+- Heading strict mode requires the document `(level, title)` heading sequence
+  to match the expected sequence exactly.
 
 YAML values are parsed with a small standard-library parser that supports the
 frontmatter shape MkForge renders: flat scalar keys and simple list values.
@@ -62,8 +66,8 @@ The YAML parser is deliberately limited to MkForge frontmatter contracts.  It
 does not try to be a complete YAML implementation, avoiding a new dependency.
 
 `demo_validation.py` documents the intended user workflow with runnable
-examples for minimum matching, strict matching, local images, remote images,
-and combined validation gates.
+examples for minimum matching, strict matching, heading levels, local images,
+remote images, and combined validation gates.
 
 ## PlantUML
 
@@ -73,6 +77,7 @@ actor User
 package "mkforge.validation" {
   class validate_markdown_yaml
   class validate_markdown_chapters
+  class validate_markdown_headings
   class validate_markdown_images
 }
 package "Markdown source" {
@@ -83,9 +88,11 @@ package "Markdown source" {
 
 User --> validate_markdown_yaml
 User --> validate_markdown_chapters
+User --> validate_markdown_headings
 User --> validate_markdown_images
 validate_markdown_yaml --> Frontmatter
 validate_markdown_chapters --> Headings
+validate_markdown_headings --> Headings
 validate_markdown_images --> ImageReferences
 @enduml
 ```

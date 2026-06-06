@@ -22,6 +22,7 @@ from mkforge import (
     Section,
     Table,
     validate_markdown_chapters,
+    validate_markdown_headings,
     validate_markdown_images,
     validate_markdown_yaml,
     verify_markdown,
@@ -54,6 +55,7 @@ Validation-specific imports (all re-exported from `mkforge`):
 ```python
 from mkforge import (
     validate_markdown_chapters,
+    validate_markdown_headings,
     validate_markdown_images,
     validate_markdown_yaml,
 )
@@ -1124,7 +1126,7 @@ check only the parsed value type.
 ```python
 validate_markdown_chapters(
     markdown: str,
-    expected: Sequence[str],
+    expected: Iterable[str],
     *,
     strict: bool = False,
 ) -> bool
@@ -1133,6 +1135,20 @@ validate_markdown_chapters(
 Checks H2 chapter titles in order.  In non-strict mode, expected chapters must
 appear as an ordered subsequence.  In strict mode, the H2 chapter sequence must
 match exactly.
+
+```python
+validate_markdown_headings(
+    markdown: str,
+    expected: Iterable[tuple[int, str]],
+    *,
+    strict: bool = False,
+) -> bool
+```
+
+Checks heading levels and titles in order. Expected headings are `(level,
+title)` pairs such as `(2, "Context")` for `## Context` or `(3, "Scope")` for
+`### Scope`. In non-strict mode, expected headings must appear as an ordered
+subsequence. In strict mode, the complete heading sequence must match exactly.
 
 ```python
 validate_markdown_images(
@@ -1153,6 +1169,7 @@ Example:
 ```python
 from mkforge import (
     validate_markdown_chapters,
+    validate_markdown_headings,
     validate_markdown_images,
     validate_markdown_yaml,
 )
@@ -1166,12 +1183,15 @@ draft: false
 
 ## Context
 
+### Scope
+
 ![Chart](assets/chart.png)
 """
 
 ok = (
     validate_markdown_yaml(markdown, {"draft": False})
     and validate_markdown_chapters(markdown, ("Context",))
+    and validate_markdown_headings(markdown, ((2, "Context"), (3, "Scope")))
     and validate_markdown_images(markdown, base_path="doc/release.md")
 )
 ```
@@ -1644,6 +1664,7 @@ stop
 participant User
 participant "validate_markdown_yaml" as YAML
 participant "validate_markdown_chapters" as Chapters
+participant "validate_markdown_headings" as Headings
 participant "validate_markdown_images" as Images
 participant "validation.markdown_contracts" as Contracts
 
@@ -1656,6 +1677,11 @@ User -> Chapters: markdown, expected, strict
 Chapters -> Contracts: extract H2 headings
 Contracts --> Chapters: bool
 Chapters --> User: bool
+
+User -> Headings: markdown, expected pairs, strict
+Headings -> Contracts: extract heading level/title pairs
+Contracts --> Headings: bool
+Headings --> User: bool
 
 User -> Images: markdown, base_path, timeout
 Images -> Contracts: extract image targets
@@ -1694,5 +1720,5 @@ uv run python demo_validation.py
 ```
 
 Exercises: YAML frontmatter contracts, strict and minimum matching, H2 chapter
-order checks, local image existence, remote HTTP(S) image checks, and a combined
-boolean validation gate.
+order checks, heading level/title checks, local image existence, remote HTTP(S)
+image checks, and a combined boolean validation gate.

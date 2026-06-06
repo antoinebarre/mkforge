@@ -45,6 +45,7 @@ reports programmatically. You compose a tree of typed objects, then call
 - [Markdown Validation](#markdown-validation)
   - [Validate YAML frontmatter](#validate-yaml-frontmatter)
   - [Validate chapter order](#validate-chapter-order)
+  - [Validate heading levels](#validate-heading-levels)
   - [Validate images](#validate-images)
   - [Combine validation gates](#combine-validation-gates)
 - [Error Reference](#error-reference)
@@ -711,6 +712,7 @@ The public validation helpers are:
 ```python
 from mkforge import (
     validate_markdown_chapters,
+    validate_markdown_headings,
     validate_markdown_images,
     validate_markdown_yaml,
 )
@@ -802,6 +804,68 @@ validate_markdown_chapters(
 )  # True
 ```
 
+### Validate heading levels
+
+`validate_markdown_headings(markdown, expected, strict=False)` checks both the
+heading level and the heading title. Use it when you need to distinguish H2
+from H3, H4, and so on.
+
+Expected headings are written as `(level, title)` pairs:
+
+```python
+from mkforge import validate_markdown_headings
+
+markdown = """# Report
+
+## Context
+
+### Scope
+
+### Risks
+
+## Tests
+"""
+
+validate_markdown_headings(
+    markdown,
+    ((2, "Context"), (3, "Scope"), (2, "Tests")),
+)  # True
+```
+
+This fails because `Scope` is level 3, not level 2:
+
+```python
+validate_markdown_headings(markdown, ((2, "Scope"),))  # False
+```
+
+This fails because the order is wrong:
+
+```python
+validate_markdown_headings(
+    markdown,
+    ((3, "Risks"), (3, "Scope")),
+)  # False
+```
+
+With `strict=True`, the complete heading sequence must match exactly:
+
+```python
+validate_markdown_headings(
+    markdown,
+    (
+        (1, "Report"),
+        (2, "Context"),
+        (3, "Scope"),
+        (3, "Risks"),
+        (2, "Tests"),
+    ),
+    strict=True,
+)  # True
+```
+
+Use `validate_markdown_chapters` when you only care about H2 chapters by title.
+Use `validate_markdown_headings` when the level is part of the contract.
+
 ### Validate images
 
 `validate_markdown_images(markdown, base_path=None, timeout=5.0)` checks every
@@ -844,6 +908,10 @@ ok = (
         markdown,
         ("Context", "Architecture", "Tests"),
         strict=True,
+    )
+    and validate_markdown_headings(
+        markdown,
+        ((2, "Context"), (3, "Scope"), (2, "Architecture")),
     )
     and validate_markdown_images(markdown, base_path="docs/report.md")
 )
@@ -896,6 +964,7 @@ from mkforge import (
     Text,
     VerificationSettings,
     validate_markdown_chapters,
+    validate_markdown_headings,
     validate_markdown_yaml,
     verify_markdown,
 )
@@ -973,6 +1042,7 @@ else:
 is_valid = (
     validate_markdown_yaml(markdown, {"draft": False})
     and validate_markdown_chapters(markdown, ("Summary", "Lint", "Tests"))
+    and validate_markdown_headings(markdown, ((2, "Summary"), (2, "Lint")))
 )
 print(f"Validation passed: {is_valid}")
 

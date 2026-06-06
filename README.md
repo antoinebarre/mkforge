@@ -105,6 +105,7 @@ without mutating the built-in policy.
 ```python
 from mkforge import (
     validate_markdown_chapters,
+    validate_markdown_headings,
     validate_markdown_images,
     validate_markdown_yaml,
 )
@@ -112,13 +113,15 @@ from mkforge import (
 ok = (
     validate_markdown_yaml(markdown, {"draft": False})
     and validate_markdown_chapters(markdown, ("Summary", "Details"))
+    and validate_markdown_headings(markdown, ((2, "Summary"), (3, "Checks")))
     and validate_markdown_images(markdown, base_path="docs/report.md")
 )
 ```
 
 Validation answers project-specific boolean questions: expected YAML
-frontmatter, required H2 chapters in order, and local or HTTP(S) image
-existence. Use `strict=True` for exact YAML keys or exact chapter sequences.
+frontmatter, required H2 chapters in order, heading level/title sequences, and
+local or HTTP(S) image existence. Use `strict=True` for exact YAML keys or exact
+heading and chapter sequences.
 
 Runnable demos:
 

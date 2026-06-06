@@ -8,6 +8,7 @@ from pathlib import Path
 
 from mkforge import (
     validate_markdown_chapters,
+    validate_markdown_headings,
     validate_markdown_images,
     validate_markdown_yaml,
 )
@@ -51,6 +52,8 @@ def _valid_markdown() -> str:
         "# Validation Demo\n\n"
         "## Context\n\n"
         "This chapter explains the validation contract.\n\n"
+        "### Scope\n\n"
+        "Heading validation can check a precise level and title.\n\n"
         "![Chart](chart.png)\n\n"
         "## Architecture\n\n"
         "The document keeps validation separate from verification.\n\n"
@@ -169,6 +172,17 @@ def _show_chapter_validation(markdown: str, wrong_markdown: str) -> None:
         ),
     )
     _show_result(
+        "heading contract: H2 Context then H3 Scope then H2 Architecture",
+        result=validate_markdown_headings(
+            markdown,
+            ((2, "Context"), (3, "Scope"), (2, "Architecture")),
+        ),
+    )
+    _show_result(
+        "wrong heading level: Scope is H3, not H2",
+        result=validate_markdown_headings(markdown, ((2, "Scope"),)),
+    )
+    _show_result(
         "wrong order: Tests before Context fails",
         result=validate_markdown_chapters(
             wrong_markdown,
@@ -239,12 +253,16 @@ def _show_combined_gate(markdown: str, work_dir: Path) -> None:
             ("Context", "Architecture", "Tests"),
             strict=True,
         )
+        and validate_markdown_headings(
+            markdown,
+            ((2, "Context"), (3, "Scope"), (2, "Architecture")),
+        )
         and validate_markdown_images(markdown, base_path=work_dir)
     )
 
     _print_section("5. Combined validation gate")
     _show_result(
-        "YAML contract + exact chapters + local images",
+        "YAML contract + exact chapters + heading levels + local images",
         result=valid,
     )
 

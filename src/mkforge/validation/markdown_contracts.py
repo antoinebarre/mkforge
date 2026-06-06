@@ -2,8 +2,9 @@
 
 This module belongs to validation, not verification, because it checks
 caller-defined document requirements: expected YAML frontmatter, required
-chapter titles, and reachable image targets.  It returns boolean results for
-CI-friendly use and does not emit Markdown compliance diagnostics.
+chapter titles, required heading levels and titles, and reachable image
+targets.  It returns boolean results for CI-friendly use and does not emit
+Markdown compliance diagnostics.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import socket
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from mkforge.input_checks import require_bool, require_path, require_string
@@ -25,6 +26,9 @@ _ATX_HEADING = re.compile(r"^(?P<mark>#{1,6})[ \t]+(?P<body>.*?)[ \t]*#*$")
 _IMAGE_REFERENCE = re.compile(r"!\[[^\]]*]\((?P<body>[^)\n]+)\)")
 _REMOTE_SCHEMES = frozenset({"http", "https"})
 _MIN_QUOTED_LENGTH = 2
+_HEADING_CONTRACT_SIZE = 2
+_MIN_HEADING_LEVEL = 1
+_MAX_HEADING_LEVEL = 6
 _CHAPTER_LEVEL = 2
 _HTTP_ERROR_STATUS = 400
 
@@ -73,7 +77,7 @@ def validate_markdown_yaml(
 
 def validate_markdown_chapters(
     markdown: str,
-    expected: Sequence[str],
+    expected: Iterable[str],
     *,
     strict: bool = False,
 ) -> bool:
@@ -97,8 +101,47 @@ def validate_markdown_chapters(
     _validate_string_sequence(expected, "expected chapters")
     require_bool(strict, "strict")
 
-    actual = _chapter_titles(markdown)
+    actual = tuple(
+        title
+        for level, title in _heading_contracts(markdown)
+        if level == _CHAPTER_LEVEL
+    )
     required = tuple(expected)
+    if strict:
+        return actual == required
+    return _is_ordered_subsequence(required, actual)
+
+
+def validate_markdown_headings(
+    markdown: str,
+    expected: Iterable[tuple[int, str]],
+    *,
+    strict: bool = False,
+) -> bool:
+    """Return whether Markdown headings satisfy an ordered level contract.
+
+    Args:
+        markdown: Markdown document text.
+        expected: Required heading contracts as ``(level, title)`` pairs,
+            where level is an integer from 1 to 6 and title is the heading
+            text without Markdown markers.
+        strict: When ``True``, the full heading sequence must exactly match
+            ``expected``.  When ``False``, ``expected`` must appear as an
+            ordered subsequence of the document headings.
+
+    Returns:
+        True when heading titles and levels satisfy the ordered contract.
+
+    Raises:
+        TypeError: If inputs are not strings, heading pairs, or a boolean
+            strict flag.
+        ValueError: If an expected heading level is outside 1..6.
+    """
+    require_string(markdown, "markdown", allow_empty=True)
+    required = _validate_heading_contracts(expected)
+    require_bool(strict, "strict")
+
+    actual = _heading_contracts(markdown)
     if strict:
         return actual == required
     return _is_ordered_subsequence(required, actual)
@@ -315,34 +358,95 @@ def _validate_string_sequence(value: object, label: str) -> None:
     Raises:
         TypeError: If the value is not a sequence of strings.
     """
-    if isinstance(value, str) or not isinstance(value, Sequence):
+    if isinstance(value, str) or not isinstance(value, Iterable):
         msg = f"{label} must be a sequence of strings."
         raise TypeError(msg)
     for item in value:
         require_string(item, label, allow_empty=False)
 
 
-def _chapter_titles(markdown: str) -> tuple[str, ...]:
-    """Return H2 chapter titles from Markdown in source order.
+def _validate_heading_contracts(
+    expected: Iterable[tuple[int, str]],
+) -> tuple[tuple[int, str], ...]:
+    """Validate and normalise public heading contracts.
+
+    Args:
+        expected: Required heading contracts as ``(level, title)`` pairs.
+
+    Returns:
+        Normalised tuple of heading contracts.
+
+    Raises:
+        TypeError: If expected is not an iterable of ``(int, str)`` pairs.
+        ValueError: If a heading level is outside 1..6.
+    """
+    if isinstance(expected, str) or not isinstance(expected, Iterable):
+        msg = "expected headings must be an iterable of (level, title) pairs."
+        raise TypeError(msg)
+    contracts: list[tuple[int, str]] = []
+    for index, item in enumerate(expected):
+        contracts.append(_validate_heading_contract(item, index))
+    return tuple(contracts)
+
+
+def _validate_heading_contract(
+    value: object,
+    index: int,
+) -> tuple[int, str]:
+    """Validate one expected heading contract.
+
+    Args:
+        value: Candidate ``(level, title)`` pair.
+        index: Zero-based position in the public iterable.
+
+    Returns:
+        Normalised heading contract.
+
+    Raises:
+        TypeError: If the pair shape, level, or title type is invalid.
+        ValueError: If the level is outside 1..6 or title is blank.
+    """
+    if not isinstance(value, tuple) or len(value) != _HEADING_CONTRACT_SIZE:
+        msg = f"expected headings[{index}] must be a (level, title) tuple."
+        raise TypeError(msg)
+    level, title = value
+    if isinstance(level, bool) or not isinstance(level, int):
+        msg = f"expected headings[{index}] level must be an int."
+        raise TypeError(msg)
+    if level < _MIN_HEADING_LEVEL or level > _MAX_HEADING_LEVEL:
+        msg = f"expected headings[{index}] level must be between 1 and 6."
+        raise ValueError(msg)
+    require_string(
+        title,
+        f"expected headings[{index}] title",
+        allow_empty=False,
+    )
+    return level, title
+
+
+def _heading_contracts(markdown: str) -> tuple[tuple[int, str], ...]:
+    """Return heading level and title contracts from Markdown in source order.
 
     Args:
         markdown: Markdown document text.
 
     Returns:
-        Tuple of H2 heading bodies outside fenced code blocks.
+        Tuple of ``(level, title)`` pairs outside fenced code blocks.
     """
     source = MarkdownSource.from_text(markdown)
-    titles: list[str] = []
+    headings: list[tuple[int, str]] = []
     for line in lines_outside_fenced_code(source):
         match = _ATX_HEADING.match(line.text)
-        if match and len(match.group("mark")) == _CHAPTER_LEVEL:
-            titles.append(match.group("body").strip())
-    return tuple(titles)
+        if match:
+            headings.append(
+                (len(match.group("mark")), match.group("body").strip()),
+            )
+    return tuple(headings)
 
 
-def _is_ordered_subsequence(
-    expected: tuple[str, ...],
-    actual: tuple[str, ...],
+def _is_ordered_subsequence[T](
+    expected: tuple[T, ...],
+    actual: tuple[T, ...],
 ) -> bool:
     """Return whether expected values appear in actual order.
 

@@ -24,6 +24,7 @@ from mkforge.errors import (
 )
 from mkforge.validation import (
     validate_markdown_chapters,
+    validate_markdown_headings,
     validate_markdown_images,
     validate_markdown_yaml,
 )
@@ -67,6 +68,7 @@ __all__ = [
     "VerificationReport",
     "VerificationSettings",
     "validate_markdown_chapters",
+    "validate_markdown_headings",
     "validate_markdown_images",
     "validate_markdown_yaml",
     "verify_markdown",

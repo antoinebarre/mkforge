@@ -454,6 +454,7 @@ The package shall export these public names from `mkforge`:
 | `verify_markdown` | verification helper |
 | `validate_markdown_yaml` | YAML frontmatter validation helper |
 | `validate_markdown_chapters` | chapter order validation helper |
+| `validate_markdown_headings` | heading level and title validation helper |
 | `validate_markdown_images` | local and remote image validation helper |
 
 ## 15. Requirement Traceability Matrix
@@ -536,6 +537,10 @@ Acceptance criteria:
   chapter titles contain the expected titles in order.
 - `validate_markdown_chapters(..., strict=True)` returns `True` only when the
   full H2 chapter sequence exactly matches the expected sequence.
+- `validate_markdown_headings(markdown, expected)` returns `True` when heading
+  `(level, title)` pairs contain the expected pairs in order.
+- `validate_markdown_headings(..., strict=True)` returns `True` only when the
+  full heading `(level, title)` sequence exactly matches the expected sequence.
 - `validate_markdown_images(markdown, base_path=...)` returns `True` only when
   every local Markdown image target exists.
 - `validate_markdown_images` checks HTTP(S) image URLs and returns `False` for

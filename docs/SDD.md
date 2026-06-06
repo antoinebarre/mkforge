@@ -124,7 +124,7 @@ scheme and host safety checks.
 | Module | Responsibility |
 |---|---|
 | `mkforge.validation` | Public validation API re-exports |
-| `mkforge.validation.markdown_contracts` | Boolean validation helpers for YAML frontmatter contracts, H2 chapter order, and local or remote image existence |
+| `mkforge.validation.markdown_contracts` | Boolean validation helpers for YAML frontmatter contracts, H2 chapter order, heading level/title order, and local or remote image existence |
 
 ## 6. Static Structure — Report Generation
 
@@ -404,6 +404,7 @@ VerificationReport --> Caller: report
 participant Caller
 participant "validate_markdown_yaml" as YAML
 participant "validate_markdown_chapters" as Chapters
+participant "validate_markdown_headings" as Headings
 participant "validate_markdown_images" as Images
 participant "markdown_contracts" as Contracts
 
@@ -416,6 +417,11 @@ Caller -> Chapters: markdown, expected, strict
 Chapters -> Contracts: extract H2 headings outside fences
 Contracts --> Chapters: bool
 Chapters --> Caller: bool
+
+Caller -> Headings: markdown, expected pairs, strict
+Headings -> Contracts: extract heading level/title pairs
+Contracts --> Headings: bool
+Headings --> Caller: bool
 
 Caller -> Images: markdown, base_path, timeout
 Images -> Contracts: extract image targets outside fences
