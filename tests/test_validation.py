@@ -19,9 +19,12 @@ from mkforge import (
     Table,
     Text,
 )
-from mkforge.headings import compute_section_heading_level
-from mkforge.markdown import render_report, save_report
-from mkforge.markdown_content import render_content
+from mkforge.document import compute_section_heading_level
+from mkforge.rendering import (
+    render_content_element,
+    render_report,
+    save_report,
+)
 
 
 def test_validation_rejects_invalid_children() -> None:
@@ -36,8 +39,8 @@ def test_validation_rejects_invalid_children() -> None:
         Chapter("Invalid").add(object())  # type: ignore[arg-type]
     with pytest.raises(InvalidChildError):
         Section("Invalid").add(object())  # type: ignore[arg-type]
-    with pytest.raises(TypeError, match="Unknown node type"):
-        render_content(object())
+    with pytest.raises(TypeError, match="Unknown content type"):
+        render_content_element(object())
 
 
 def test_validation_rejects_invalid_titles() -> None:
@@ -106,7 +109,7 @@ def test_validation_rejects_invalid_metadata_and_paths(tmp_path: Path) -> None:
     with pytest.raises(TypeError, match="Report toc must be a bool"):
         Report("Bad", toc="yes")  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="report must be a Report"):
-        render_report(object())  # type: ignore[arg-type]
+        render_report(object())
     with pytest.raises(ValueError, match="save path cannot be empty"):
         save_report(Report("Bad"), "")
     with pytest.raises(TypeError, match="save path must be str or PathLike"):

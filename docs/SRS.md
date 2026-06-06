@@ -110,7 +110,7 @@ missing parent directories.
 
 ### 9.3 Markdown Output Interface
 
-`Report.render()` and `mkforge.markdown.render_report(report)` shall return a
+`Report.render()` and `mkforge.rendering.render_report(report)` shall return a
 single Markdown string.
 
 ## 10. Functional Requirements
@@ -185,10 +185,11 @@ Acceptance criteria:
 - `Paragraph("text")` renders `text`.
 - `Paragraph("")` raises `ValueError`.
 - `Paragraph((Text(...), LineBreak(), ...))` renders inline content in order.
+- `Paragraph((Link(...), ...))` accepts `Link` inline elements.
 
 ### SRS-FR-007 Inline Text Content
 
-MkForge shall expose `Text` and `LineBreak`.
+MkForge shall expose `Text`, `LineBreak`, and `Link`.
 
 Acceptance criteria:
 
@@ -198,6 +199,10 @@ Acceptance criteria:
 - `Text("x", style="code")` renders `` `x` ``.
 - `Text("x", style="strikethrough")` renders `~~x~~`.
 - `LineBreak()` inside a paragraph renders a GFM hard line break.
+- `Link(url, text)` renders `[text](url)`.
+- `Link(url, text, title)` renders `[text](url "title")`.
+- `Link(url)` with empty text renders `[](url)`.
+- `Link` is valid only inside a `Paragraph` inline tuple.
 
 ### SRS-FR-008 Code Blocks
 
@@ -238,7 +243,14 @@ Acceptance criteria:
 
 - `Image(path, alt)` renders `![alt](path)`.
 - If `title` is set, the title is included in the Markdown image syntax.
-- MkForge shall not validate, copy, or modify the path.
+- `save()` verifies that all local image paths exist before writing; missing
+  paths raise `MissingAssetError`.
+- `save(path, copy_assets=True)` copies local images into `assets/` next to
+  the output file and rewrites the image links accordingly.
+- `save(path, copy_assets=True)` downloads remote image URLs into `assets/`;
+  download failures raise `DownloadAssetError`.
+- Filename collisions on copy or download are resolved by renaming with a
+  `_N` suffix and emitting a `UserWarning`.
 
 ### SRS-FR-012 Block Quotes
 
@@ -282,12 +294,14 @@ Acceptance criteria:
 
 ### SRS-FR-016 Public Render Functions
 
-MkForge shall expose module-level render helpers in `mkforge.markdown`.
+MkForge shall expose module-level render helpers in `mkforge.rendering`.
 
 Acceptance criteria:
 
 - `render_report(report)` returns the same output as `report.render()`.
 - `save_report(report, path)` writes the same output as `report.save(path)`.
+- `save_report(report, path, copy_assets=True)` is equivalent to
+  `report.save(path, copy_assets=True)`.
 
 ### SRS-FR-017 Helper Functions
 
@@ -360,7 +374,8 @@ The repository shall include:
 | Report metadata | `dict[str, object] | None` | none beyond type hints | YAML frontmatter |
 | Chapter title | `str` | non-blank | `## title` |
 | Section title | `str` | non-blank, depth <= H6 at render | `###` through `######` |
-| Paragraph content | `str | tuple[Text | LineBreak, ...]` | empty plain string rejected | Markdown paragraph |
+| Paragraph content | `str | tuple[Text | LineBreak | Link, ...]` | empty plain string rejected | Markdown paragraph |
+| Link | `url: str`, `text: str`, `title: str` | none | `[text](url)` inline Markdown |
 | Text style | literal style string | type checked | inline GFM |
 | Table headers | `tuple[str, ...]` | non-empty | GFM header |
 | Table rows | `tuple[tuple[str, ...], ...]` | width equals headers | GFM rows |
@@ -402,6 +417,7 @@ The package shall export these public names from `mkforge`:
 | `Paragraph` | content element |
 | `Text` | inline content |
 | `LineBreak` | inline content |
+| `Link` | inline content |
 | `CodeBlock` | content element |
 | `Table` | content element |
 | `BulletList` | content element |
@@ -412,6 +428,8 @@ The package shall export these public names from `mkforge`:
 | `InvalidChildError` | exception |
 | `InvalidTableError` | exception |
 | `ReportDepthError` | exception |
+| `MissingAssetError` | exception |
+| `DownloadAssetError` | exception |
 | `Diagnostic` | diagnostic object |
 | `MarkdownSource` | verification source context |
 | `VerificationReport` | verification result |
@@ -422,23 +440,23 @@ The package shall export these public names from `mkforge`:
 | Requirement | Implementation | Verification |
 |---|---|---|
 | SRS-FR-001 | `document.Report` | `tests/test_helpers.py`, `tests/test_validation.py` |
-| SRS-FR-002 | `frontmatter.render_metadata`, `document.Report` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
-| SRS-FR-003 | `markdown._initial_parts` | `tests/test_report_generation.py`, demo output |
-| SRS-FR-004 | `headings.Chapter`, `document.Report.add` | `tests/test_validation.py`, `tests/test_helpers.py` |
-| SRS-FR-005 | `headings.Section`, `headings.compute_section_heading_level` | `tests/test_report_generation.py`, `tests/test_validation.py` |
-| SRS-FR-006 | `content.Paragraph`, `markdown_content._render_paragraph` | `tests/test_report_generation.py`, `tests/test_validation.py` |
-| SRS-FR-007 | `content.Text`, `content.LineBreak`, `markdown_content._render_text` | `tests/test_report_generation.py` |
-| SRS-FR-008 | `content.CodeBlock`, `markdown_content._render_code_block` | `tests/test_report_generation.py` |
-| SRS-FR-009 | `content.Table`, `markdown_content._render_table` | `tests/test_report_generation.py`, `tests/test_validation.py` |
+| SRS-FR-002 | `rendering._render_metadata`, `document.Report` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
+| SRS-FR-003 | `rendering._report_blocks` | `tests/test_report_generation.py`, demo output |
+| SRS-FR-004 | `document.Chapter`, `document.Report.add` | `tests/test_validation.py`, `tests/test_helpers.py` |
+| SRS-FR-005 | `document.Section`, `document.compute_section_heading_level` | `tests/test_report_generation.py`, `tests/test_validation.py` |
+| SRS-FR-006 | `content.Paragraph`, `rendering._render_paragraph` | `tests/test_report_generation.py`, `tests/test_validation.py` |
+| SRS-FR-007 | `content.Text`, `content.LineBreak`, `rendering._render_inline` | `tests/test_report_generation.py` |
+| SRS-FR-008 | `content.CodeBlock`, `rendering._render_code_block` | `tests/test_report_generation.py` |
+| SRS-FR-009 | `content.Table`, `rendering._render_table` | `tests/test_report_generation.py`, `tests/test_validation.py` |
 | SRS-FR-010 | `content.BulletList`, `content.NumberedList` | `tests/test_report_generation.py`, `tests/test_validation.py` |
-| SRS-FR-011 | `content.Image`, `markdown_content._render_image` | `tests/test_report_generation.py`, `demo_report.py` |
-| SRS-FR-012 | `content.BlockQuote`, `markdown_content._render_quote` | `tests/test_report_generation.py` |
-| SRS-FR-013 | `content.HorizontalRule`, `markdown_content._render_rule` | `tests/test_report_generation.py` |
-| SRS-FR-014 | `table_of_contents.generate_toc`, `markdown._append_toc` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
-| SRS-FR-015 | `section_numbers.NumberingContext`, `markdown._heading_title` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
-| SRS-FR-016 | `markdown.render_report`, `markdown.save_report` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
-| SRS-FR-017 | `table_of_contents.anchor_slug`, `section_numbers.numbered_title` | `tests/test_helpers.py` |
-| SRS-FR-018 | `validation`, `content_validation`, `table_validation`, constructor checks | `tests/test_validation.py` |
+| SRS-FR-011 | `content.Image`, `rendering._render_image` | `tests/test_report_generation.py`, `demo_report.py` |
+| SRS-FR-012 | `content.BlockQuote`, `rendering._render_block_quote` | `tests/test_report_generation.py` |
+| SRS-FR-013 | `content.HorizontalRule`, `rendering._render_horizontal_rule` | `tests/test_report_generation.py` |
+| SRS-FR-014 | `rendering._generate_toc` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
+| SRS-FR-015 | `rendering.NumberingContext`, `rendering._heading_title` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
+| SRS-FR-016 | `rendering.render_report`, `rendering.save_report` | `tests/test_report_generation.py`, `tests/test_helpers.py` |
+| SRS-FR-017 | `rendering.anchor_slug` | `tests/test_helpers.py` |
+| SRS-FR-018 | `content._validate_*`, `document._validate_*`, `input_checks.*` | `tests/test_validation.py` |
 | SRS-FR-019 | `verification` | `tests/test_markdown_verification.py` |
 | SRS-FR-020 | `MarkdownRule`, `VerificationSettings` | `tests/test_markdown_verification.py` |
 | SRS-NFR-001..007 | package and repository checks | `make check`, `demo_report.py`, document review |
@@ -448,7 +466,7 @@ The package shall export these public names from `mkforge`:
 | ID | Item | Disposition |
 |---|---|---|
 | OPN-001 | YAML escaping is minimal and intentionally not a full YAML serializer. | Documented limitation. |
-| OPN-002 | Image file copying is out of scope. | Documented limitation. |
+| OPN-002 | Image file copying is implemented via `copy_assets=True`; remote download is blocked for private/loopback hosts (SSRF protection). | Resolved in current implementation. |
 | OPN-003 | Duplicate heading anchors are not disambiguated. | Candidate future requirement. |
 
 ## 17. Markdown Verification Requirements

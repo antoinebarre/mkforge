@@ -9,6 +9,10 @@ These instructions apply to the whole repository.
 - Keep each function's cyclomatic complexity at or below 10.
 - Keep Python modules below 500 lines unless an ADR explicitly justifies a
   larger module.
+- Do not split a module purely to reduce its line count or cyclomatic
+  complexity. A split is justified only when the resulting modules have
+  genuinely independent reasons to change. Validation helpers that are only
+  ever used by one module belong in that module, not in a separate file.
 - Do not optimize for maintainability-index scores when they encourage
   artificial fragmentation into very small files.
 - Write Google-style docstrings for every function and class, including private
@@ -78,6 +82,11 @@ These instructions apply to the whole repository.
   checks.
 - Avoid Python files that only re-export imports. A module must own behavior,
   data, or documentation that justifies its existence.
+- Group code by business cohesion, not by technical layer. Content element
+  types and their construction-time validation belong together. Rendering
+  logic for all element types belongs in one rendering module. Do not create
+  separate ``*_validation.py``, ``*_rendering.py``, or ``*_helpers.py``
+  satellites when the behavior is inseparable from its host module.
 - Write tests for new behavior.
 - Maintain 100% test coverage.
 - Test function docstrings must state the requirement being verified.

@@ -1,6 +1,12 @@
 """Tests for Markdown conformance verification policies."""
 
 # ruff: noqa: SLF001
+# SLF001 (private-member access) is suppressed file-wide because several tests
+# call internal helper functions from the rule modules directly
+# (e.g. _first_line_heading, _code_block_style).  These tests verify the
+# helper contracts in isolation; accessing them via the module attribute is
+# intentional.  If the helpers are renamed or moved, these tests will break
+# loudly at the call site — no silent regression.
 
 from pathlib import Path
 

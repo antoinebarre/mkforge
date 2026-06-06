@@ -8,6 +8,7 @@ from mkforge import (
     HorizontalRule,
     Image,
     LineBreak,
+    Link,
     NumberedList,
     Paragraph,
     Report,
@@ -15,7 +16,7 @@ from mkforge import (
     Table,
     Text,
 )
-from mkforge.markdown import render_report
+from mkforge.rendering import render_report
 
 
 def test_report_renders_core_markdown_blocks() -> None:
@@ -117,3 +118,32 @@ def test_report_renders_metadata_toc_and_numbering() -> None:
     actual = render_report(report)
     if actual != expected:
         raise AssertionError(actual)
+
+
+def test_link_renders_inline_in_paragraph() -> None:
+    """Requirement: Link renders as [text](url) inside a paragraph."""
+    report = Report("R").add(
+        Chapter("C").add(
+            Paragraph((Link("https://example.com", text="Example"),)),
+        ),
+    )
+    actual = render_report(report)
+    if "[Example](https://example.com)" not in actual:
+        raise AssertionError(actual)
+
+
+def test_link_renders_with_title() -> None:
+    """Requirement: Link with title renders as [text](url "title")."""
+    link = Link("https://example.com", text="Example", title="My site")
+    result = link.render()
+    expected = '[Example](https://example.com "My site")'
+    if result != expected:
+        raise AssertionError(result)
+
+
+def test_link_renders_without_text() -> None:
+    """Requirement: Link with empty text renders as [](url)."""
+    link = Link("https://example.com")
+    result = link.render()
+    if result != "[](https://example.com)":
+        raise AssertionError(result)

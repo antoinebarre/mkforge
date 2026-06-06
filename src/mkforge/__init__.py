@@ -8,18 +8,20 @@ from mkforge.content import (
     HorizontalRule,
     Image,
     LineBreak,
+    Link,
     NumberedList,
     Paragraph,
     Table,
     Text,
 )
-from mkforge.document import Report
+from mkforge.document import Chapter, Report, Section
 from mkforge.errors import (
+    DownloadAssetError,
     InvalidChildError,
     InvalidTableError,
+    MissingAssetError,
     ReportDepthError,
 )
-from mkforge.headings import Chapter, Section
 from mkforge.verification import (
     Diagnostic,
     MarkdownLine,
@@ -39,14 +41,17 @@ __all__ = [
     "Chapter",
     "CodeBlock",
     "Diagnostic",
+    "DownloadAssetError",
     "HorizontalRule",
     "Image",
     "InvalidChildError",
     "InvalidTableError",
     "LineBreak",
+    "Link",
     "MarkdownLine",
     "MarkdownRule",
     "MarkdownSource",
+    "MissingAssetError",
     "NumberedList",
     "Paragraph",
     "Report",

@@ -3,8 +3,7 @@
 from pathlib import Path
 
 from mkforge import Chapter, Report
-from mkforge.section_numbers import NumberingContext
-from mkforge.table_of_contents import anchor_slug
+from mkforge.rendering import NumberingContext, anchor_slug
 
 
 def test_report_renders_metadata_without_tags() -> None:

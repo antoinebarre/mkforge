@@ -53,14 +53,8 @@ skinparam linetype ortho
 package "mkforge" {
   package "Report generation" {
     [document]
-    [headings]
     [content]
-    [markdown]
-    [frontmatter]
-    [table_of_contents]
-    [section_numbers]
-    [markdown_content]
-    [markdown_rendering]
+    [rendering]
   }
   package "Verification" {
     [verification.api]
@@ -73,7 +67,6 @@ package "mkforge" {
     [rules.gfm]
   }
   [__init__] --> [document]
-  [__init__] --> [headings]
   [__init__] --> [content]
   [__init__] --> [errors]
   [__init__] --> [verification.api]
@@ -92,19 +85,12 @@ third-party runtime libraries.
 |---|---|---|
 | `mkforge.__init__` | Stable package exports | public API names |
 | `mkforge._metadata` | Package identity constants | `PROJECT_NAME`, `PROJECT_DESCRIPTION` |
-| `mkforge.content` | Markdown content dataclasses | `Paragraph`, `Text`, `LineBreak`, `CodeBlock`, `Table`, `BulletList`, `NumberedList`, `Image`, `HorizontalRule`, `BlockQuote` |
-| `mkforge.content_validation` | Input validation for content types | `validate_paragraph_content`, `validate_items` |
-| `mkforge.document` | Report root, render and save entry points | `Report` |
-| `mkforge.headings` | Chapter and section containers, heading depth | `Chapter`, `Section`, `compute_section_heading_level` |
-| `mkforge.markdown` | Full document render and save orchestration | `render_report`, `save_report` |
-| `mkforge.markdown_content` | Content element rendering dispatch | `render_content` |
-| `mkforge.markdown_rendering` | Low-level Markdown primitive rendering | inline rendering helpers |
-| `mkforge.frontmatter` | Metadata dictionary rendering | `render_metadata` |
-| `mkforge.table_of_contents` | TOC generation and anchor slugs | `generate_toc`, `anchor_slug` |
-| `mkforge.section_numbers` | Heading numbering state machine | `NumberingContext`, `numbered_title` |
-| `mkforge.errors` | Explicit package exceptions | `InvalidChildError`, `InvalidTableError`, `ReportDepthError` |
-| `mkforge.input_checks` | Shared input validation guards | `require_str`, `require_bool`, `require_dict` |
-| `mkforge.table_validation` | Table-specific validation | `validate_table_headers`, `validate_table_rows` |
+| `mkforge.content` | Content element dataclasses and their construction-time validation | `Paragraph`, `Text`, `LineBreak`, `Link`, `CodeBlock`, `Table`, `BulletList`, `NumberedList`, `Image`, `HorizontalRule`, `BlockQuote` |
+| `mkforge.document` | Report, Chapter, Section containers and heading depth | `Report`, `Chapter`, `Section`, `compute_section_heading_level` |
+| `mkforge.rendering` | Complete Markdown rendering pipeline: frontmatter, TOC, numbering, content dispatch, and save orchestration | `render_report`, `save_report`, `anchor_slug`, `NumberingContext` |
+| `mkforge.assets` | Asset collection, verification, copy, download, and path rewriting at save time | `collect_local_image_paths`, `collect_remote_image_urls`, `verify_assets`, `copy_assets_to_dir`, `download_assets_to_dir`, `rewrite_image_paths` |
+| `mkforge.errors` | Explicit package exceptions | `InvalidChildError`, `InvalidTableError`, `ReportDepthError`, `MissingAssetError`, `DownloadAssetError` |
+| `mkforge.input_checks` | Shared primitive input validation guards | `require_string`, `require_bool`, `require_tuple`, `require_path`, `require_metadata` |
 
 ### 5.2 Verification Modules
 
@@ -137,7 +123,7 @@ class Report {
   +auto_numbering: bool
   +add(*items: Chapter): Report
   +render(): str
-  +save(path): None
+  +save(path, *, copy_assets=False): None
 }
 
 class Chapter {
@@ -160,6 +146,11 @@ class Text {
   +style: TextStyle
 }
 class LineBreak
+class Link {
+  +url: str
+  +text: str
+  +title: str
+}
 class CodeBlock {
   +code: str
   +language: str
@@ -199,6 +190,7 @@ Section "1" --> "*" HorizontalRule
 Section "1" --> "*" BlockQuote
 Paragraph "1" --> "*" Text
 Paragraph "1" --> "*" LineBreak
+Paragraph "1" --> "*" Link
 @enduml
 ```
 
@@ -270,32 +262,20 @@ skinparam linetype ortho
 left to right direction
 
 [__init__] --> [document]
-[__init__] --> [headings]
 [__init__] --> [content]
 [__init__] --> [errors]
 
-[document] --> [headings]
-[document] --> [markdown]
+[document] --> [content]
 [document] --> [errors]
-
-[headings] --> [content]
-[headings] --> [errors]
-[headings] --> [input_checks]
+[document] --> [input_checks]
 
 [content] --> [errors]
-[content] --> [content_validation]
-[content] --> [table_validation]
+[content] --> [input_checks]
 
-[markdown] --> [frontmatter]
-[markdown] --> [markdown_content]
-[markdown] --> [table_of_contents]
-[markdown] --> [section_numbers]
-[markdown] --> [headings]
+[rendering] --> [content]
+[rendering] --> [input_checks]
 
-[markdown_content] --> [content]
-[markdown_content] --> [markdown_rendering]
-
-[table_of_contents] --> [headings]
+[document] ..> [rendering] : lazy import
 @enduml
 ```
 
@@ -343,32 +323,30 @@ end note
 @startuml rendering-sequence
 participant Caller
 participant Report
-participant Markdown
-participant Frontmatter
-participant Toc
-participant Numbering
-participant Content
+participant Rendering
 
 Caller -> Report: render()
-Report -> Markdown: render_report(report)
-Markdown -> Frontmatter: render_metadata(metadata)
-Frontmatter --> Markdown: YAML frontmatter block
-Markdown -> Toc: generate_toc(report)
-Toc --> Markdown: TOC lines or ""
-Markdown -> Numbering: NumberingContext()
+Report -> Rendering: render_report(report)
+Rendering -> Rendering: _render_metadata(dict)
+note right: YAML frontmatter block
+Rendering -> Rendering: _generate_toc(report)
+note right: TOC lines or ""
+Rendering -> Rendering: NumberingContext()
 loop chapters
-  Markdown -> Numbering: enter_level() / advance()
-  Markdown -> Content: render_content(chapter)
-  Content --> Markdown: H2 heading block
+  Rendering -> Rendering: enter_level() / advance()
+  note right: H2 heading
   loop sections (recursive)
-    Markdown -> Numbering: enter_level() / advance()
-    Markdown -> Content: render_content(section)
-    Content --> Markdown: H3..H6 heading block
-    Markdown -> Numbering: leave_level()
+    Rendering -> Rendering: enter_level() / advance()
+    note right: H3..H6 heading
+    Rendering -> Rendering: leave_level()
   end
-  Markdown -> Numbering: leave_level()
+  loop content elements
+    Rendering -> Rendering: render_content_element(node)
+    note right: dispatcher to block renderer
+  end
+  Rendering -> Rendering: leave_level()
 end
-Markdown --> Report: joined Markdown document
+Rendering --> Report: joined Markdown document
 Report --> Caller: str
 @enduml
 ```
@@ -549,8 +527,8 @@ dictionary, TOC flag, and automatic numbering flag.
 Design decisions:
 
 - `Report` is mutable through `add()` to support fluent composition.
-- `Report.render()` delegates to `mkforge.markdown.render_report`.
-- `Report.save(path)` delegates to `mkforge.markdown.save_report`.
+- `Report.render()` delegates to `mkforge.rendering.render_report`.
+- `Report.save(path)` delegates to `mkforge.rendering.save_report`.
 - Metadata remains a free-form dictionary.
 - Metadata type, metadata keys, TOC flag, numbering flag, and initial children
   are validated during construction.
@@ -575,18 +553,19 @@ Allowed children: nested `Section`, and any content element defined in
 Content elements are dataclasses representing Markdown concepts. Most are
 frozen because they are value-like and do not need composition methods.
 
-| Class | Stored Data | Validation |
-|---|---|---|
-| `Text` | `content`, `style` | style literal enforced at construction |
-| `LineBreak` | none | none |
-| `Paragraph` | plain string or inline tuple | empty plain string rejected |
-| `CodeBlock` | code, language | none |
-| `Table` | headers, rows | headers required, row width checked |
-| `BulletList` | items | non-empty |
-| `NumberedList` | items | non-empty |
-| `Image` | path, alt, title | none |
-| `HorizontalRule` | none | none |
-| `BlockQuote` | content | none |
+| Class | Stored Data | Validation | Scope |
+|---|---|---|---|
+| `Text` | `content`, `style` | style literal enforced at construction | inline |
+| `LineBreak` | none | none | inline |
+| `Link` | `url`, `text`, `title` | none | inline (inside `Paragraph` only) |
+| `Paragraph` | plain string or inline tuple | empty plain string rejected; inline items must be `Text`, `LineBreak`, or `Link` | block |
+| `CodeBlock` | code, language | none | block |
+| `Table` | headers, rows | headers required, row width checked | block |
+| `BulletList` | items | non-empty | block |
+| `NumberedList` | items | non-empty | block |
+| `Image` | path, alt, title | none | block |
+| `HorizontalRule` | none | none | block |
+| `BlockQuote` | content | none | block |
 
 ### 15.5 Diagnostic
 
@@ -654,7 +633,7 @@ than H6 raises `ReportDepthError`.
 4. If TOC is enabled, append generated TOC when not empty.
 5. Traverse chapters in order.
 6. Traverse nested sections in order.
-7. Render content elements through `markdown_content.render_content`.
+7. Render content elements through `rendering.render_content_element`.
 8. Join blocks with two newlines.
 
 ### 17.2 Frontmatter Rendering
@@ -666,7 +645,7 @@ For each metadata dictionary item:
 - `None` renders as `null`;
 - all other values render through `str(value)`.
 
-This is a deliberately small frontmatter renderer, not a complete YAML
+The frontmatter renderer inside `rendering.py` is deliberately small, not a complete YAML
 serializer.
 
 ### 17.3 TOC Rendering
@@ -730,8 +709,10 @@ Each rule is a pure callable `(MarkdownSource) -> tuple[Diagnostic, ...]`. Rules
 | `InvalidChildError` | `Report.add`, `Chapter.add`, `Section.add` | unsupported child |
 | `InvalidTableError` | `Table` | empty headers or row width mismatch |
 | `ReportDepthError` | `compute_section_heading_level` | heading deeper than H6 |
-| `TypeError` | `render_content` | renderer receives unknown content type |
+| `TypeError` | `render_content_element` | renderer receives unknown content type |
 | `TypeError` | constructors and render helpers | invalid runtime input type |
+| `MissingAssetError` | `save_report` / `Report.save` | local image path does not exist |
+| `DownloadAssetError` | `save_report` / `Report.save` (with `copy_assets=True`) | remote image cannot be downloaded |
 | `FileNotFoundError` | `verify_markdown_file` | source file does not exist |
 
 ## 19. Interface Design
@@ -755,12 +736,11 @@ from mkforge import (
 
 Advanced users and tests may use:
 
-- `mkforge.markdown.render_report`;
-- `mkforge.markdown.save_report`;
-- `mkforge.table_of_contents.anchor_slug`;
-- `mkforge.table_of_contents.generate_toc`;
-- `mkforge.section_numbers.NumberingContext`;
-- `mkforge.section_numbers.numbered_title`.
+- `mkforge.rendering.render_report`;
+- `mkforge.rendering.save_report`;
+- `mkforge.rendering.anchor_slug`;
+- `mkforge.rendering.NumberingContext`;
+- `mkforge.document.compute_section_heading_level`.
 
 ### 19.3 Verification Extension Point
 
@@ -835,23 +815,23 @@ Verification assets:
 | Requirement | Design Element |
 |---|---|
 | SRS-FR-001 | `document.Report` |
-| SRS-FR-002 | `document.Report.metadata`, `frontmatter.render_metadata` |
-| SRS-FR-003 | `markdown._initial_parts` |
-| SRS-FR-004 | `headings.Chapter`, `document.Report.add` |
-| SRS-FR-005 | `headings.Section`, `compute_section_heading_level` |
-| SRS-FR-006 | `content.Paragraph`, `markdown_content._render_paragraph` |
-| SRS-FR-007 | `content.Text`, `content.LineBreak`, `markdown_content._render_text` |
-| SRS-FR-008 | `content.CodeBlock`, `markdown_content._render_code_block` |
-| SRS-FR-009 | `content.Table`, `markdown_content._render_table` |
+| SRS-FR-002 | `document.Report.metadata`, `rendering._render_metadata` |
+| SRS-FR-003 | `rendering._report_blocks` |
+| SRS-FR-004 | `document.Chapter`, `document.Report.add` |
+| SRS-FR-005 | `document.Section`, `document.compute_section_heading_level` |
+| SRS-FR-006 | `content.Paragraph`, `rendering._render_paragraph` |
+| SRS-FR-007 | `content.Text`, `content.LineBreak`, `rendering._render_inline` |
+| SRS-FR-008 | `content.CodeBlock`, `rendering._render_code_block` |
+| SRS-FR-009 | `content.Table`, `rendering._render_table` |
 | SRS-FR-010 | `content.BulletList`, `content.NumberedList` |
-| SRS-FR-011 | `content.Image`, `markdown_content._render_image` |
-| SRS-FR-012 | `content.BlockQuote`, `markdown_content._render_quote` |
-| SRS-FR-013 | `content.HorizontalRule`, `markdown_content._render_rule` |
-| SRS-FR-014 | `table_of_contents.generate_toc`, `markdown._append_toc` |
-| SRS-FR-015 | `section_numbers.NumberingContext`, `markdown._heading_title` |
-| SRS-FR-016 | `markdown.render_report`, `markdown.save_report` |
-| SRS-FR-017 | `table_of_contents.anchor_slug`, `section_numbers.numbered_title` |
-| SRS-FR-018 | `content_validation`, `table_validation`, `input_checks`, constructor checks |
+| SRS-FR-011 | `content.Image`, `rendering._render_image` |
+| SRS-FR-012 | `content.BlockQuote`, `rendering._render_block_quote` |
+| SRS-FR-013 | `content.HorizontalRule`, `rendering._render_horizontal_rule` |
+| SRS-FR-014 | `rendering._generate_toc`, `rendering._append_toc` |
+| SRS-FR-015 | `rendering.NumberingContext`, `rendering._heading_title` |
+| SRS-FR-016 | `rendering.render_report`, `rendering.save_report` |
+| SRS-FR-017 | `rendering.anchor_slug` |
+| SRS-FR-018 | `content._validate_*`, `document._validate_*`, `input_checks.*` |
 | SRS-FR-019 | `verification.api.verify_markdown`, `verification.api.verify_markdown_file` |
 | SRS-FR-020 | `verification.policy.MarkdownSource`, `verification.registry.MARKDOWN_COMPLIANCE` |
 | SRS-FR-021 | `verification.rules.markdown.*`, `verification.rules.gfm.*` |

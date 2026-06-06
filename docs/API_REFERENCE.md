@@ -16,6 +16,7 @@ Preferred user imports:
 ```python
 from mkforge import (
     Chapter,
+    Link,
     Paragraph,
     Report,
     Section,
@@ -28,9 +29,8 @@ from mkforge import (
 Advanced helper imports:
 
 ```python
-from mkforge.markdown import render_report, save_report
-from mkforge.section_numbers import NumberingContext, numbered_title
-from mkforge.table_of_contents import anchor_slug, generate_toc
+from mkforge.rendering import render_report, save_report, anchor_slug, NumberingContext
+from mkforge.document import compute_section_heading_level
 ```
 
 Verification-specific imports (all re-exported from `mkforge`):
@@ -116,7 +116,14 @@ Methods:
 |---|---|---|
 | `add(*items: Chapter)` | `Report` | Appends chapters and returns self |
 | `render()` | `str` | Renders full Markdown document |
-| `save(path)` | `None` | Writes Markdown to a UTF-8 file |
+| `save(path, *, copy_assets=False)` | `None` | Writes Markdown to a UTF-8 file; optionally copies images |
+
+`save` parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `path` | `str \| Path` | required | Destination file path |
+| `copy_assets` | `bool` | `False` | When `True`, copies local and remote images into `assets/` next to the output file and rewrites image links |
 
 Raises:
 
@@ -129,6 +136,8 @@ Raises:
 | Non-bool `toc` or `auto_numbering` | `TypeError` |
 | Invalid initial children collection | `TypeError` |
 | Non-chapter passed to `add()` | `InvalidChildError` |
+| Local image path does not exist | `MissingAssetError` |
+| Remote image download fails (when `copy_assets=True`) | `DownloadAssetError` |
 
 Example:
 
@@ -155,7 +164,7 @@ report = Report(
 
 ### 4.2 `Chapter`
 
-Module: `mkforge.headings`
+Module: `mkforge.document`
 
 Exported by: `mkforge`
 
@@ -200,7 +209,7 @@ chapter = Chapter("Executive Summary").add(
 
 ### 4.3 `Section`
 
-Module: `mkforge.headings`
+Module: `mkforge.document`
 
 Exported by: `mkforge`
 
@@ -258,7 +267,7 @@ Exported by: `mkforge`
 Signature:
 
 ```python
-Paragraph(content: str | tuple[Text | LineBreak, ...])
+Paragraph(content: str | tuple[Text | LineBreak | Link, ...])
 ```
 
 Raises:
@@ -267,7 +276,7 @@ Raises:
 |---|---|
 | `content == ""` for plain string content | `ValueError` |
 | Non-string and non-tuple content | `TypeError` |
-| Tuple item other than `Text` or `LineBreak` | `TypeError` |
+| Tuple item other than `Text`, `LineBreak`, or `Link` | `TypeError` |
 
 Examples:
 
@@ -353,7 +362,52 @@ Intended for use inside a `Paragraph` inline tuple.
 
 ---
 
-### 4.7 `CodeBlock`
+### 4.7 `Link`
+
+Module: `mkforge.content`
+
+Exported by: `mkforge`
+
+Inline element — valid only inside a `Paragraph` inline tuple.
+
+Signature:
+
+```python
+Link(url: str, text: str = "", title: str = "")
+```
+
+Parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `url` | `str` | required | Link target URL |
+| `text` | `str` | `""` | Link display text; empty renders as `[]` |
+| `title` | `str` | `""` | Optional tooltip title |
+
+Rendering:
+
+```markdown
+[text](url)
+[text](url "title")
+```
+
+Example:
+
+```python
+from mkforge import Link, Paragraph, Text
+
+para = Paragraph(
+    (
+        Text("See the "),
+        Link("https://example.com", text="documentation", title="Docs"),
+        Text(" for details."),
+    ),
+)
+```
+
+---
+
+### 4.8 `CodeBlock`
 
 Module: `mkforge.content`
 
@@ -383,7 +437,7 @@ print('hello from mkforge')
 
 ---
 
-### 4.8 `Table`
+### 4.9 `Table`
 
 Module: `mkforge.content`
 
@@ -420,7 +474,7 @@ table = Table(
 
 ---
 
-### 4.9 `BulletList`
+### 4.11 `BulletList`
 
 Module: `mkforge.content`
 
@@ -450,7 +504,7 @@ scope = BulletList(("Markdown output", "Pure Python API"))
 
 ---
 
-### 4.10 `NumberedList`
+### 4.12 `NumberedList`
 
 Module: `mkforge.content`
 
@@ -480,7 +534,7 @@ steps = NumberedList(("Compose report", "Render Markdown", "Save file"))
 
 ---
 
-### 4.11 `Image`
+### 4.13 `Image`
 
 Module: `mkforge.content`
 
@@ -512,7 +566,7 @@ Rendered output:
 
 ---
 
-### 4.12 `HorizontalRule`
+### 4.14 `HorizontalRule`
 
 Module: `mkforge.content`
 
@@ -532,7 +586,7 @@ Rendered output:
 
 ---
 
-### 4.13 `BlockQuote`
+### 4.15 `BlockQuote`
 
 Module: `mkforge.content`
 
@@ -581,11 +635,51 @@ Raised when a `Table` cannot be rendered as a valid GFM table.
 
 Raised when a nested section would render below H6.
 
+### 5.4 `MissingAssetError`
+
+Raised by `save()` / `save_report()` when one or more local image paths do
+not exist on disk before writing the output file.
+
+Attributes:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `missing` | `tuple[Path, ...]` | All missing paths, in the order they were found |
+
+String form:
+
+```text
+Missing asset files: /project/chart.png, /project/logo.png
+```
+
+### 5.5 `DownloadAssetError`
+
+Raised by `save(copy_assets=True)` / `save_report(copy_assets=True)` when a
+remote image URL cannot be downloaded.
+
+Attributes:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `url` | `str` | The URL that failed |
+| `reason` | `str` | The failure reason |
+
+Raised for:
+- Unsupported URL schemes (only `http`, `https`, `ftp`, `ftps` are allowed)
+- Hostnames that resolve to private or loopback addresses (SSRF protection)
+- Network errors (`URLError`)
+
+String form:
+
+```text
+Failed to download asset 'https://example.com/img.png': <urlopen error timeout>
+```
+
 ---
 
 ## 6. Module-Level Functions — Report Generation
 
-### 6.1 `mkforge.markdown.render_report`
+### 6.1 `mkforge.rendering.render_report`
 
 Signature:
 
@@ -595,18 +689,30 @@ render_report(report: Report) -> str
 
 Renders a full Markdown document. Equivalent to `report.render()`.
 
-### 6.2 `mkforge.markdown.save_report`
+### 6.2 `mkforge.rendering.save_report`
 
 Signature:
 
 ```python
-save_report(report: Report, path: str | Path) -> None
+save_report(report: Report, path: str | Path, *, copy_assets: bool = False) -> None
 ```
 
 Writes a full Markdown document to a UTF-8 file. Equivalent to
-`report.save(path)`.
+`report.save(path, copy_assets=copy_assets)`.
 
-### 6.3 `mkforge.table_of_contents.anchor_slug`
+When `copy_assets=True`:
+
+1. Local image files are copied into an `assets/` directory next to `path`.
+2. Remote image URLs are downloaded into the same `assets/` directory.
+3. All image links in the rendered Markdown are rewritten to `assets/<filename>`.
+
+Filename collisions (two images sharing a basename) are renamed with a `_N`
+suffix and a `UserWarning` is emitted.
+
+Raises `MissingAssetError` if any local image is absent.  Raises
+`DownloadAssetError` if a remote download fails.
+
+### 6.3 `mkforge.rendering.anchor_slug`
 
 Signature:
 
@@ -614,26 +720,17 @@ Signature:
 anchor_slug(title: str) -> str
 ```
 
+Converts a heading title to a GitHub-style anchor slug.
+
 Example:
 
 ```python
 anchor_slug("Hello, 2026!") == "hello-2026"
 ```
 
-### 6.4 `mkforge.table_of_contents.generate_toc`
+### 6.4 `mkforge.rendering.NumberingContext`
 
-Signature:
-
-```python
-generate_toc(report: Report) -> str
-```
-
-Generates the TOC list for report chapters and sections. Returns an empty
-string when the report has no chapters.
-
-### 6.5 `mkforge.section_numbers.NumberingContext`
-
-Tracks counters during heading traversal.
+Tracks heading counters during rendering traversal.
 
 Methods:
 
@@ -642,17 +739,19 @@ Methods:
 | `enter_level()` | Pushes a new zero counter |
 | `leave_level()` | Pops the active counter |
 | `advance()` | Increments the active counter |
-| `prefix()` | Returns the dotted prefix string |
+| `prefix()` | Returns the dotted prefix string (e.g. `1.2.`) |
 
-### 6.6 `mkforge.section_numbers.numbered_title`
+### 6.5 `mkforge.document.compute_section_heading_level`
 
 Signature:
 
 ```python
-numbered_title(title: str, context: NumberingContext) -> str
+compute_section_heading_level(depth_from_chapter: int) -> int
 ```
 
-Returns a title prefixed with the active dotted number.
+Returns the Markdown heading level (3–6) for a section at a given nesting
+depth below its parent chapter. Raises `ReportDepthError` when the level
+would exceed H6.
 
 ---
 
@@ -1189,6 +1288,7 @@ class Section {
 class Paragraph { +content: str | tuple }
 class Text { +content: str; +style: TextStyle }
 class LineBreak
+class Link { +url: str; +text: str; +title: str }
 class CodeBlock { +code: str; +language: str }
 class Table { +headers: tuple; +rows: tuple }
 class BulletList { +items: tuple }
@@ -1218,6 +1318,7 @@ Section "1" --> "*" HorizontalRule
 Section "1" --> "*" BlockQuote
 Paragraph "1" --> "*" Text
 Paragraph "1" --> "*" LineBreak
+Paragraph "1" --> "*" Link
 @enduml
 ```
 
@@ -1288,13 +1389,11 @@ package "mkforge (public)" {
 
 package "Report generation" {
   [document]
-  [headings]
   [content]
-  [markdown]
-  [frontmatter]
-  [table_of_contents]
-  [section_numbers]
-  [markdown_content]
+  [rendering]
+  [assets]
+  [errors]
+  [input_checks]
 }
 
 package "Verification" {
@@ -1307,15 +1406,19 @@ package "Verification" {
 }
 
 [__init__] --> [document]
-[__init__] --> [headings]
 [__init__] --> [content]
+[__init__] --> [errors]
 [__init__] --> [verification.api]
 
-[document] --> [markdown]
-[markdown] --> [frontmatter]
-[markdown] --> [table_of_contents]
-[markdown] --> [section_numbers]
-[markdown] --> [markdown_content]
+[document] --> [content]
+[document] --> [errors]
+[document] --> [input_checks]
+[document] ..> [rendering] : lazy import
+
+[rendering] --> [content]
+[rendering] --> [input_checks]
+[rendering] ..> [assets] : lazy import
+[assets] --> [errors]
 
 [verification.api] --> [verification.registry]
 [verification.api] --> [verification.policy]
@@ -1332,24 +1435,35 @@ package "Verification" {
 @startuml render-sequence
 participant User
 participant Report
-participant Markdown
-participant Frontmatter
-participant Toc
-participant Content
+participant Rendering
+participant Assets
 
 User -> Report: render()
-Report -> Markdown: render_report(report)
-Markdown -> Frontmatter: render_metadata(dict)
-Frontmatter --> Markdown: YAML block
-Markdown -> Markdown: append H1 title
-Markdown -> Toc: generate_toc(report)
-Toc --> Markdown: TOC lines or ""
+Report -> Rendering: render_report(report)
+Rendering -> Rendering: _render_metadata(dict)
+note right: YAML frontmatter block
+Rendering -> Rendering: append H1 title
+Rendering -> Rendering: _generate_toc(report)
+note right: TOC lines or ""
 loop chapters and sections
-  Markdown -> Content: render_content(item)
-  Content --> Markdown: Markdown block
+  Rendering -> Rendering: render_content_element(item)
+  note right: item.render() via Renderable protocol
 end
-Markdown --> Report: complete document str
+Rendering --> Report: complete document str
 Report --> User: str
+
+User -> Report: save(path, copy_assets=True)
+Report -> Rendering: save_report(report, path, copy_assets=True)
+Rendering -> Assets: collect_local_image_paths(report)
+Rendering -> Assets: verify_assets(paths)
+note right: MissingAssetError if absent
+Rendering -> Rendering: render_report(report)
+Rendering -> Assets: copy_assets_to_dir(local_paths, assets_dir)
+Rendering -> Assets: collect_remote_image_urls(report)
+Rendering -> Assets: download_assets_to_dir(urls, assets_dir)
+note right: DownloadAssetError on failure
+Rendering -> Assets: rewrite_image_paths(markdown, local_map, remote_map)
+Rendering -> Rendering: write UTF-8 file
 @enduml
 ```
 
