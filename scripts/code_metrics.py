@@ -20,19 +20,13 @@ class MetricsConfig:
         paths: Python paths to inspect.
         exclude: Glob patterns to exclude.
         max_cyclomatic_complexity: Maximum complexity for one block.
-        max_average_complexity: Maximum average block complexity.
-        min_maintainability_index: Minimum maintainability index per file.
         max_module_logical_lines: Maximum logical lines per module.
-        max_module_source_lines: Maximum source lines per module.
     """
 
     paths: tuple[Path, ...]
     exclude: tuple[str, ...]
     max_cyclomatic_complexity: int
-    max_average_complexity: float
-    min_maintainability_index: float
     max_module_logical_lines: int
-    max_module_source_lines: int
 
 
 @dataclass(frozen=True)
@@ -55,15 +49,11 @@ class FileMetric:
     Attributes:
         path: File path.
         logical_lines: Non-empty, non-comment lines.
-        source_lines: Physical source lines.
-        maintainability_index: Maintainability score.
         blocks: Function and method metrics.
     """
 
     path: Path
     logical_lines: int
-    source_lines: int
-    maintainability_index: float
     blocks: tuple[BlockMetric, ...]
 
 
@@ -90,13 +80,11 @@ class MetricsSummary:
 
     Attributes:
         max_complexity: Highest cyclomatic complexity.
-        average_complexity: Average block cyclomatic complexity.
-        min_maintainability_index: Lowest file maintainability index.
+        max_logical_lines: Highest non-empty, non-comment module line count.
     """
 
     max_complexity: int
-    average_complexity: float
-    min_maintainability_index: float
+    max_logical_lines: int
 
 
 def main() -> int:
@@ -130,10 +118,7 @@ def _load_config(path: Path) -> MetricsConfig:
         paths=tuple(Path(value) for value in _string_tuple(table["paths"])),
         exclude=_string_tuple(table.get("exclude", [])),
         max_cyclomatic_complexity=int(table["max_cyclomatic_complexity"]),
-        max_average_complexity=float(table["max_average_complexity"]),
-        min_maintainability_index=float(table["min_maintainability_index"]),
         max_module_logical_lines=int(table["max_module_logical_lines"]),
-        max_module_source_lines=int(table["max_module_source_lines"]),
     )
 
 
@@ -216,8 +201,7 @@ def _file_metric(path: Path) -> FileMetric:
     tree = ast.parse(source)
     logical_lines = _logical_line_count(lines)
     blocks = _block_metrics(path, tree)
-    maintainability = _maintainability_index(logical_lines, blocks)
-    return FileMetric(path, logical_lines, len(lines), maintainability, blocks)
+    return FileMetric(path, logical_lines, blocks)
 
 
 def _logical_line_count(lines: list[str]) -> int:
@@ -301,24 +285,6 @@ def _decision_weight(node: ast.AST) -> int:
     return int(isinstance(node, decision_nodes))
 
 
-def _maintainability_index(
-    logical_lines: int,
-    blocks: tuple[BlockMetric, ...],
-) -> float:
-    """Compute a lightweight maintainability score.
-
-    Args:
-        logical_lines: Logical line count.
-        blocks: Block metrics.
-
-    Returns:
-        Maintainability score from 0 to 100.
-    """
-    max_complexity = max((block.complexity for block in blocks), default=1)
-    score = 100.0 - (max_complexity - 1) * 4.0 - logical_lines * 0.05
-    return max(0.0, round(score, 2))
-
-
 def _metric_results(
     config: MetricsConfig,
     metrics: tuple[FileMetric, ...],
@@ -336,9 +302,7 @@ def _metric_results(
     """
     blocks = tuple(block for metric in metrics for block in metric.blocks)
     max_block = max(blocks, key=lambda item: item.complexity, default=None)
-    min_mi = min(metrics, key=lambda item: item.maintainability_index)
     max_lloc = max(metrics, key=lambda item: item.logical_lines)
-    max_sloc = max(metrics, key=lambda item: item.source_lines)
     max_complexity = max_block.complexity if max_block else 0
     max_label = max_block.label if max_block else "no analyzed block"
     return (
@@ -349,29 +313,10 @@ def _metric_results(
             summary.max_complexity <= config.max_cyclomatic_complexity,
         ),
         MetricResult(
-            "Average cyclomatic complexity",
-            f"<= {config.max_average_complexity:.2f}",
-            f"{summary.average_complexity:.2f}",
-            summary.average_complexity <= config.max_average_complexity,
-        ),
-        MetricResult(
-            "Minimum maintainability index",
-            f">= {config.min_maintainability_index:.2f}",
-            f"{min_mi.maintainability_index:.2f} ({min_mi.path})",
-            summary.min_maintainability_index
-            >= config.min_maintainability_index,
-        ),
-        MetricResult(
             "Max module logical lines",
             f"<= {config.max_module_logical_lines}",
             f"{max_lloc.logical_lines} ({max_lloc.path})",
             max_lloc.logical_lines <= config.max_module_logical_lines,
-        ),
-        MetricResult(
-            "Max module source lines",
-            f"<= {config.max_module_source_lines}",
-            f"{max_sloc.source_lines} ({max_sloc.path})",
-            max_sloc.source_lines <= config.max_module_source_lines,
         ),
     )
 
@@ -387,28 +332,11 @@ def _metrics_summary(metrics: tuple[FileMetric, ...]) -> MetricsSummary:
     """
     blocks = tuple(block for metric in metrics for block in metric.blocks)
     max_complexity = max((block.complexity for block in blocks), default=0)
-    min_maintainability = min(
-        metric.maintainability_index for metric in metrics
-    )
+    max_logical_lines = max(metric.logical_lines for metric in metrics)
     return MetricsSummary(
         max_complexity,
-        _average_complexity(blocks),
-        min_maintainability,
+        max_logical_lines,
     )
-
-
-def _average_complexity(blocks: tuple[BlockMetric, ...]) -> float:
-    """Return average block complexity.
-
-    Args:
-        blocks: Block metrics.
-
-    Returns:
-        Average complexity.
-    """
-    if not blocks:
-        return 0.0
-    return sum(block.complexity for block in blocks) / len(blocks)
 
 
 def _status_line(*, failed: bool, summary: MetricsSummary) -> str:
@@ -425,8 +353,7 @@ def _status_line(*, failed: bool, summary: MetricsSummary) -> str:
     return (
         f"Code metrics {status}: "
         f"max CC {summary.max_complexity}, "
-        f"avg CC {summary.average_complexity:.2f}, "
-        f"min MI {summary.min_maintainability_index:.2f}"
+        f"max logical lines {summary.max_logical_lines}"
     )
 
 

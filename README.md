@@ -65,25 +65,70 @@ quality or packaging execution. The directory is kept in the repository with
 ## Example
 
 ```python
-from mkforge import Metadata, Report, Section, Table
+from mkforge import Chapter, Paragraph, Report, Section, Table
 
 report = Report(
-    metadata=Metadata(title="Quality Report"),
-    sections=[
-        Section.heading("Summary", level=2),
-        Section.paragraph("All checks passed."),
-        Table(
-            headers=("Check", "Status"),
-            rows=[
-                ("format", "pass"),
-                ("lint", "pass"),
-                ("tests", "pass"),
-            ],
+    title="Quality Report",
+    metadata={"title": "Quality Report", "tags": ["quality", "ci"]},
+    toc=True,
+).add(
+    Chapter("Summary").add(
+        Section("Checks").add(
+            Paragraph("All checks passed."),
+            Table.from_columns(
+                {
+                    "Check": ("format", "lint", "tests"),
+                    "Status": ("pass", "pass", "pass"),
+                },
+            ),
         ),
-    ],
+    ),
 )
 
 markdown = report.render()
+```
+
+## Markdown Verification
+
+```python
+from mkforge import verify_markdown
+
+report = verify_markdown("# Title\n\n| A | B |\n| --- | --- |\n")
+```
+
+Verification covers pure Markdown and GitHub Flavored Markdown conformance in a
+single pass. Custom rule callables can be appended for one verification call
+without mutating the built-in policy.
+
+## Markdown Validation
+
+```python
+from mkforge import (
+    validate_markdown_chapters,
+    validate_markdown_headings,
+    validate_markdown_images,
+    validate_markdown_yaml,
+)
+
+ok = (
+    validate_markdown_yaml(markdown, {"draft": False})
+    and validate_markdown_chapters(markdown, ("Summary", "Details"))
+    and validate_markdown_headings(markdown, ((2, "Summary"), (3, "Checks")))
+    and validate_markdown_images(markdown, base_path="docs/report.md")
+)
+```
+
+Validation answers project-specific boolean questions: expected YAML
+frontmatter, required H2 chapters in order, heading level/title sequences, and
+local or HTTP(S) image existence. Use `strict=True` for exact YAML keys or exact
+heading and chapter sequences.
+
+Runnable demos:
+
+```bash
+uv run python demo_report.py
+uv run python demo_verif.py
+uv run python demo_validation.py
 ```
 
 ## Relationship With Scribpy

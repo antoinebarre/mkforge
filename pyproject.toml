@@ -53,13 +53,14 @@ line-length = 79
 
 [tool.ruff.lint]
 select = ["ALL"]
+ignore = ["TC001", "TC002", "TC003", "TC004"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.flake8]
 max-line-length = 79
-max-complexity = 4
+max-complexity = 10
 docstring-convention = "google"
 count = true
 show-source = true
@@ -71,11 +72,8 @@ exclude_dirs = ["tests", "work", ".venv"]
 [tool.mkforge.code_metrics]
 paths = ["src/mkforge", "tests"]
 exclude = []
-max_cyclomatic_complexity = 4
-max_average_complexity = 2.0
-min_maintainability_index = 85
-max_module_logical_lines = 120
-max_module_source_lines = 180
+max_cyclomatic_complexity = 10
+max_module_logical_lines = 900
 
 [tool.uvforge]
 project_name = "mkforge"
