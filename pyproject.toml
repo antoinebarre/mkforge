@@ -95,4 +95,11 @@ dev = [
     "pytest-cov>=6",
     "ruff>=0.4",
     "twine>=6",
+    "yggtools>=1.2.0",
 ]
+
+[tool.yggtools.code_metrics]
+paths = ["src/mkforge", "tests"]
+exclude = []
+max_cyclomatic_complexity = 10
+max_module_logical_lines = 900

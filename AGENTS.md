@@ -1,98 +1,63 @@
-# Codex Instructions
+# AI Agent Instructions
 
-These instructions apply to the whole repository.
+These instructions apply to all AI coding agents (ChatGPT, GitHub Copilot,
+and other LLM-based tools) working on this repository.
 
 ## Coding Standards
 
-- Write Python code that strictly follows Python PEP rules and the Google
-  Python Style Guide.
-- Keep each function small and focused.
-- Keep cyclomatic complexity at or below 10 for every function.
+- Strictly follow Python PEP rules and the Google Python Style Guide for all
+  Python code.
+- Keep each function's cyclomatic complexity at or below 10.
 - Keep Python modules below 500 lines unless an ADR explicitly justifies a
   larger module.
-- Do not optimize for maintainability-index scores when they encourage
-  artificial fragmentation into very small files.
+- Do not split a module purely to reduce its line count or cyclomatic
+  complexity. A split is justified only when the resulting modules have
+  genuinely independent reasons to change.
 - Write Google-style docstrings for every function and class, including private
   functions and classes.
-- Prefer explicit, readable, auditable code over clever abstractions.
-- Use clear names and simple control flow.
-- Add comments only when they clarify non-obvious intent or constraints.
+- Write clean, auditable code with simple control flow.
+- Favor clarity over cleverness.
+- Use precise names for modules, classes, functions, variables, and tests.
+- Keep comments rare and useful.
 - Apply SOLID principles strictly:
-  - Single Responsibility: each module, class, and function must have one clear
-    reason to change.
+  - Single Responsibility: each module, class, and function must have one
+    clear reason to change.
   - Open/Closed: add behavior through new focused implementations, rules,
     strategies, or registries instead of editing large conditional blocks.
   - Liskov Substitution: implementations of a public protocol must remain
-    interchangeable and must not weaken expected behavior.
-  - Interface Segregation: depend on narrow protocols or callables rather than
-    broad objects with unrelated responsibilities.
-  - Dependency Inversion: high-level workflows depend on stable interfaces, not
-    concrete low-level details.
+    interchangeable.
+  - Interface Segregation: depend on narrow protocols or callables rather
+    than broad objects with unrelated responsibilities.
+  - Dependency Inversion: high-level workflows depend on stable interfaces,
+    not concrete low-level details.
 
 ## Dependencies
 
 - Minimize external dependencies.
-- Prefer the Python standard library by default.
-- Add third-party packages only when explicitly requested or when the standard
-  library is clearly insufficient for the task.
-- Before adding a dependency, document why it is needed.
+- Prefer Python standard library packages.
+- Do not add third-party dependencies unless there is a clear technical need
+  that cannot reasonably be met with the standard library.
+- Explain the reason for any new dependency before adding it.
 
-## Design
+## Implementation Guidance
 
 - Start substantial feature work and architecture changes with an Architecture
-  Decision Record before implementing code.
-- Include PlantUML diagrams in ADRs when they clarify structure, behavior,
-  dependencies, lifecycles, or integration flows.
-- Document the design patterns used in each ADR, including why each pattern is
-  appropriate and what tradeoff it introduces.
-- Define public APIs, internal interfaces, data contracts, and expected error
-  behavior in the ADR before filling in feature implementation details.
-- Implement features only after the architecture, API boundaries, and extension
-  points are explicit enough to review.
-- Prefer a clean package layout over compatibility with unpublished APIs.
+  Decision Record in `doc/` before implementing code.
+- Keep changes focused on the requested behavior.
+- Keep public interfaces small.
 - Name modules, classes, functions, variables, and tests with business/domain
-  vocabulary first. Prefer names such as `verify_file`, `heading_slugs`, or
-  `required_headings` over architecture-first names such as `node`, `leaf`,
-  `manager`, `processor`, `handler`, `orchestrator`, or `service` unless those
-  words are the real domain concept.
-- Prefer concrete, short, auditable names over abstract framework names.
-- Keep public APIs narrow and stable.
-- Avoid hidden side effects.
-- Prefer pure functions for transformation logic.
-- Validate inputs close to the boundary of the system.
-- Make error messages precise and useful.
-- Use design patterns deliberately to improve maintainability and evolvability:
-  - use Strategy when behavior varies by profile, format, rule, or policy;
-  - use Registry when behavior must be extended without modifying the engine;
-  - use Adapter when exposing a simple callable or external API behind an
-    internal interface;
-  - use Factory functions when object creation has validation or multiple
-    variants;
-  - use Template Method only when a workflow is stable and extension points are
-    explicit.
-- Do not introduce a design pattern for decoration. A pattern is acceptable only
-  when it removes duplication, reduces conditional complexity, clarifies an
-  extension point, or protects a public contract.
-- Separate verification from validation:
-  - verification checks Markdown or GitHub Flavored Markdown conformance;
-  - validation checks document content, metadata, required headings, wording,
-    and project-specific policies.
-- Keep diagnostics auditable: one diagnostic rule must live in one Python
-  module, grouped under the relevant `verification/` or `validation/`
-  package, and the module docstring must explain precisely what the rule
-  checks.
-- Avoid Python files that only re-export imports. A module must own behavior,
-  data, or documentation that justifies its existence.
-
-## Tests and Documentation
-
+  vocabulary first.
+- Avoid global mutable state unless there is a clear reason.
+- Prefer deterministic behavior and explicit inputs.
+- Use design patterns deliberately:
+  - Strategy when behavior varies by profile, format, rule, or policy.
+  - Registry when behavior must be extended without modifying the engine.
+  - Adapter when exposing a simple callable or external API.
+  - Factory functions when object creation has validation or multiple variants.
+- Write tests for new behavior.
 - Maintain 100% test coverage.
-- Write tests for all new behavior.
-- For new public behavior, add targeted validation tests for construction and
-  input contracts, targeted verification tests for rendered Markdown or GFM
-  conformance when applicable, and end-to-end tests only as workflow coverage;
-  do not rely on end-to-end tests alone.
-- Test function docstrings must state the requirement being verified.
+- Test function docstrings must state the requirement being verified using the
+  prefix `Requirement:`.
 - Every module, function, class, method, and test must include a strict
   Google-style docstring, including private functions and classes.
 - Function and method docstrings must include:
@@ -102,19 +67,130 @@ These instructions apply to the whole repository.
   - `Raises:` for every intentionally raised exception.
 - Class docstrings must include `Attributes:` when instances expose public
   attributes.
-- Module docstrings for diagnostic rules must explain what the rule checks, why
-  it belongs to verification or validation, and what kind of diagnostic it
-  emits.
-- Avoid placeholder docstrings such as `Function result.`, vague summaries, or a
-  single imperative sentence that does not document inputs and outputs.
+
+## Project Structure
+
+- Source code lives in `src/mkforge/`.
+- Tests live in `tests/`.
+- Temporary outputs (coverage, caches, build artifacts) go into `work/`.
 
 ## Quality Checks
 
-Run these checks before considering code complete:
+Before finishing code changes, run:
 
 ```bash
 make check
 ```
 
-Use `make ci` for non-mutating verification and `make check-dist` before
-publishing.
+Use `make ci` for non-mutating verification.
+
+---
+
+## Mode Architecte
+
+Activate this mode by saying: "mode architecte".
+
+### Posture
+
+- **Challenge first.** Before accepting any feature request, ask: Is this
+  feature necessary? What problem does it solve? Can an existing mechanism
+  handle it? If the request is vague, ask one targeted clarifying question
+  before doing anything else.
+- **Incremental ADRs.** Propose one focused ADR per decision. Never bundle
+  unrelated decisions in one document.
+- **Simplicity over cleverness.** Prefer fewer abstractions. A flat list of
+  steps beats a plugin framework when there are three plugins.
+- **Injection over inheritance.** Pass dependencies explicitly. Never use
+  base-class coupling or hidden global state.
+- **Design patterns deliberately.** Use Strategy when behavior varies by
+  policy. Use Registry when behavior must be extended without editing the
+  engine. Use Adapter to isolate I/O. Use Pipeline for ordered, independently
+  testable steps. Do not introduce a pattern for decoration.
+
+### Deliverables
+
+When asked to design a feature, produce documents in this order:
+
+1. **SRS fragment** — list only the requirements that are new or changed. Use
+   `REQ-<CATEGORY>-<NN>` identifiers. Each requirement gets one sentence with
+   SHALL / SHOULD / MAY. Include acceptance criteria.
+2. **ADR** — one decision, one document. Sections: Context, Decision,
+   Consequences, Alternatives rejected. Store in `doc/ADR-NNN-slug.md`.
+3. **SDD section** — update the relevant section of `doc/SDD.md` to reflect
+   the design. Include: affected modules, public interfaces changed, data
+   flow, error handling, test strategy.
+
+### Constraints
+
+- SOLID principles strictly applied.
+- Each module, class, and function has one clear reason to change.
+- High-level workflows depend on stable interfaces, not concrete low-level
+  details.
+- No module exceeds 500 lines unless an ADR explicitly justifies it.
+- No function has cyclomatic complexity above 10.
+- Public interfaces are small and named with business/domain vocabulary.
+- No global mutable state.
+
+---
+
+## Mode Codeur
+
+Activate this mode by saying: "mode codeur".
+
+### Posture
+
+- **Clarity over cleverness.** Write code a junior can read without
+  explanation.
+- **PEP-compliant always.** Follow PEP 8, PEP 257 (Google style), PEP 484,
+  PEP 526. Run `make check` before declaring done.
+- **100% check coverage.** Every code change must leave `make check` passing.
+  Fix ruff, flake8, mypy, bandit, and pytest failures before closing the task.
+- **Defensive programming at boundaries only.** Validate at entry points (CLI
+  args, external API responses, file I/O). Trust internal code and framework
+  guarantees. Do not add redundant guards inside a function that already
+  received a validated value.
+- **Exceptions with intent.** Raise only when the caller genuinely cannot
+  continue. Name exceptions with domain vocabulary. Never use bare `except:`.
+  Never swallow exceptions silently.
+- **Prefer stdlib, then well-known packages.** Use `pathlib`, `dataclasses`,
+  `typing`, `importlib.resources`. Do not add a dependency that the stdlib can
+  handle.
+- **Injection over inheritance.** Pass dependencies as arguments. Avoid global
+  state.
+
+### Coding Standards (Codeur)
+
+- Google-style docstrings on every function, method, class — including private
+  ones.
+- Function docstrings: summary + `Args:` + `Returns:` + `Raises:`.
+- Class docstrings: summary + `Attributes:` when public attributes exist.
+- Test docstrings use `Requirement:` prefix to state what is being verified.
+- Names use business/domain vocabulary.
+- Cyclomatic complexity <= 10 per function.
+- Module size <= 500 lines (justified by ADR if exceeded).
+
+### Testing Strategy
+
+For every code change, write:
+
+1. **Unit tests** — mock all I/O and subprocess calls. Test one function in
+   isolation. Cover the pass path, the fail path, and each `Raises:` clause.
+2. **Integration / end-to-end tests** — at least one test that exercises the
+   full workflow without mocking internal modules (only external calls like
+   `subprocess`).
+
+Test naming: `test_<what>_<condition>`.
+
+### Quality Gate
+
+Before reporting done, run:
+
+```bash
+make check
+```
+
+When fixing linter/type errors:
+- `ruff` errors — fix the code, not `# noqa`.
+- `mypy` errors — add proper type annotations; never use `# type: ignore`.
+- `bandit` B404/B603/B607 on subprocess — use `# nosec BXXX` on the offending
+  line.
