@@ -169,14 +169,18 @@ def test_validation_images_rejects_missing_local_and_remote_targets(
         raise AssertionError(remote_markdown)
 
 
-def test_validation_public_inputs_fail_fast() -> None:
-    """Requirement: validation APIs reject invalid public inputs."""
+def test_validation_yaml_and_chapter_inputs_fail_fast() -> None:
+    """Requirement: YAML and chapter APIs reject invalid public inputs."""
     with pytest.raises(TypeError, match="markdown must be a string"):
         validate_markdown_yaml(1, {})  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="expected YAML contract"):
         validate_markdown_yaml("", [])  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="expected chapters"):
         validate_markdown_chapters("", "Intro")
+
+
+def test_validation_heading_inputs_fail_fast() -> None:
+    """Requirement: heading validation rejects invalid public inputs."""
     with pytest.raises(TypeError, match="expected headings"):
         validate_markdown_headings("", "Intro")  # type: ignore[arg-type]
     with pytest.raises(TypeError, match=r"expected headings\[0\]"):
@@ -187,6 +191,10 @@ def test_validation_public_inputs_fail_fast() -> None:
         validate_markdown_headings("", [(7, "Intro")])
     with pytest.raises(ValueError, match="title cannot be empty"):
         validate_markdown_headings("", [(2, " ")])
+
+
+def test_validation_image_inputs_fail_fast() -> None:
+    """Requirement: image validation rejects invalid public inputs."""
     with pytest.raises(ValueError, match="base_path cannot be empty"):
         validate_markdown_images("", base_path="")
     with pytest.raises(TypeError, match="timeout must be a number"):

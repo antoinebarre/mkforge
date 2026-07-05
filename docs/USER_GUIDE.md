@@ -1,676 +1,862 @@
 # MkForge User Guide
 
-MkForge is a zero-dependency Python library for building structured Markdown
-reports programmatically. You compose a tree of typed objects, then call
-`.render()` or `.save()` — the library handles all Markdown formatting.
+MkForge is a zero-dependency Python library for generating Markdown reports
+from structured Python objects.
 
----
+Use it when a script, quality gate, release job, audit task, or documentation
+pipeline needs to produce reproducible Markdown without hand-built string
+templates.
 
-## Table of Contents
+For exhaustive class, function, helper, rule, and feature contracts, see
+[`API_REFERENCE.md`](API_REFERENCE.md).
 
-- [Installation](#installation)
+## Contents
+
+- [Install And Import](#install-and-import)
+- [How To Think About MkForge](#how-to-think-about-mkforge)
 - [Quick Start](#quick-start)
-- [Document Tree](#document-tree)
-  - [Report](#report)
-  - [Chapter](#chapter)
-  - [Section](#section)
-  - [Nesting rules](#nesting-rules)
-- [Content Elements](#content-elements)
-  - [Paragraph](#paragraph)
-  - [Text](#text)
-  - [LineBreak](#linebreak)
-  - [Link](#link)
-  - [CodeBlock](#codeblock)
-  - [Table](#table)
-  - [BulletList and NumberedList](#bulletlist-and-numberedlist)
-  - [Image](#image)
-  - [HorizontalRule](#horizontalrule)
-  - [BlockQuote](#blockquote)
-- [Rendering](#rendering)
-  - [Render to string](#render-to-string)
-  - [Save to file](#save-to-file)
-  - [Asset management](#asset-management)
-- [Report Options](#report-options)
-  - [YAML frontmatter](#yaml-frontmatter)
-  - [Table of contents](#table-of-contents)
-  - [Automatic heading numbering](#automatic-heading-numbering)
-- [Markdown Verification](#markdown-verification)
-  - [Verify a string](#verify-a-string)
-  - [Verify a file](#verify-a-file)
-  - [VerificationReport](#verificationreport)
-  - [Diagnostic fields](#diagnostic-fields)
-  - [Disabling rules](#disabling-rules)
-  - [Custom rules](#custom-rules)
-  - [TOML settings](#toml-settings)
-- [Markdown Validation](#markdown-validation)
-  - [Validate YAML frontmatter](#validate-yaml-frontmatter)
-  - [Validate chapter order](#validate-chapter-order)
-  - [Validate heading levels](#validate-heading-levels)
-  - [Validate images](#validate-images)
-  - [Combine validation gates](#combine-validation-gates)
-- [Error Reference](#error-reference)
-- [Complete Example](#complete-example)
+- [Classic Flows](#classic-flows)
+  - [Flow 1: Generate A CI Quality Report](#flow-1-generate-a-ci-quality-report)
+  - [Flow 2: Generate Release Notes](#flow-2-generate-release-notes)
+  - [Flow 3: Build A Dependency Audit Report](#flow-3-build-a-dependency-audit-report)
+  - [Flow 4: Save A Report With Local Images](#flow-4-save-a-report-with-local-images)
+  - [Flow 5: Verify Markdown Before Publishing](#flow-5-verify-markdown-before-publishing)
+  - [Flow 6: Validate A Project Document Contract](#flow-6-validate-a-project-document-contract)
+  - [Flow 7: Use MkForge In A Documentation Pipeline](#flow-7-use-mkforge-in-a-documentation-pipeline)
+- [Report Building Blocks](#report-building-blocks)
+- [Rendering And Saving](#rendering-and-saving)
+- [Frontmatter, TOC, And Numbering](#frontmatter-toc-and-numbering)
+- [Verification](#verification)
+- [Validation](#validation)
+- [Assets](#assets)
+- [Errors](#errors)
+- [Patterns And Recommendations](#patterns-and-recommendations)
+- [Complete End-To-End Script](#complete-end-to-end-script)
 
----
+## Install And Import
 
-## Installation
+MkForge requires Python 3.12 or newer.
 
-```
+For development in this repository:
+
+```bash
 uv sync
 ```
 
-MkForge requires Python 3.12+ and has **no external dependencies**.
+Preferred imports come from the top-level `mkforge` package:
 
----
+```python
+from mkforge import Chapter, Paragraph, Report, Section, Table
+```
+
+For richer documents:
+
+```python
+from mkforge import (
+    BlockQuote,
+    BulletList,
+    Chapter,
+    CodeBlock,
+    HorizontalRule,
+    Image,
+    LineBreak,
+    Link,
+    NumberedList,
+    Paragraph,
+    Report,
+    Section,
+    Table,
+    Text,
+)
+```
+
+For Markdown quality gates:
+
+```python
+from mkforge import (
+    VerificationSettings,
+    validate_markdown_chapters,
+    validate_markdown_headings,
+    validate_markdown_images,
+    validate_markdown_yaml,
+    verify_markdown,
+    verify_markdown_file,
+)
+```
+
+## How To Think About MkForge
+
+MkForge has three jobs:
+
+1. Build Markdown reports from typed Python objects.
+2. Verify Markdown/GFM conformance and return diagnostics.
+3. Validate project-specific content contracts and return booleans.
+
+Those jobs are deliberately separate.
+
+Generation answers: "What Markdown should this structured data produce?"
+
+Verification answers: "Is this Markdown well-formed according to Markdown,
+GitHub Flavored Markdown, and local resource rules?"
+
+Validation answers: "Does this document contain the frontmatter, chapters,
+headings, or images my project expects?"
+
+The object model is small:
+
+```text
+Report
++-- Chapter
+    +-- Section
+    |   +-- Section
+    |   +-- content element
+    +-- content element
+```
+
+`Report` renders as one H1. `Chapter` renders as H2. `Section` renders as H3
+through H6 depending on nesting depth.
+
+Content elements render as Markdown blocks or inline fragments:
+
+- `Paragraph`
+- `Text`
+- `LineBreak`
+- `Link`
+- `CodeBlock`
+- `Table`
+- `BulletList`
+- `NumberedList`
+- `Image`
+- `HorizontalRule`
+- `BlockQuote`
 
 ## Quick Start
 
 ```python
-from mkforge import (
-    BulletList, Chapter, CodeBlock, Paragraph,
-    Report, Section, Table, Text,
+from mkforge import Chapter, Paragraph, Report, Section, Table
+
+report = Report(
+    title="Quality Report",
+    metadata={"title": "Quality Report", "draft": False},
+    toc=True,
+).add(
+    Chapter("Summary").add(
+        Paragraph("All checks passed."),
+        Table.from_columns(
+            {
+                "Check": ("format", "lint", "tests"),
+                "Status": ("pass", "pass", "pass"),
+            },
+        ),
+    ),
+    Chapter("Details").add(
+        Section("Test Runner").add(
+            Paragraph("The suite completed with full coverage."),
+        ),
+    ),
 )
 
-report = (
-    Report(title="Quality Report")
-    .add(
-        Chapter("Summary").add(
-            Paragraph("All checks passed."),
-            Table(
-                headers=("Check", "Result"),
-                rows=(
-                    ("lint", "pass"),
-                    ("tests", "pass"),
-                    ("coverage", "100 %"),
-                ),
-            ),
-        ),
-        Chapter("Details").add(
-            Section("Linting").add(
-                Paragraph((
-                    Text("Tool: "),
-                    Text("ruff", style="code"),
-                )),
-                BulletList(("No violations found.",)),
-            ),
-            Section("Tests").add(
-                CodeBlock("pytest --tb=short", language="sh"),
-            ),
-        ),
-    )
-)
-
-print(report.render())
-report.save("output/quality_report.md")
+markdown = report.render()
+report.save("work/quality-report.md")
 ```
 
-Output (excerpt):
+Rendered excerpt:
 
 ```markdown
+---
+title: Quality Report
+draft: false
+---
+
 # Quality Report
+
+- [Summary](#summary)
+- [Details](#details)
+  - [Test Runner](#test-runner)
 
 ## Summary
 
 All checks passed.
 
-| Check | Result |
+| Check | Status |
 | --- | --- |
+| format | pass |
 | lint | pass |
 | tests | pass |
-| coverage | 100 % |
-
-## Details
-
-### Linting
-
-Tool: `ruff`
-
-- No violations found.
-
-### Tests
-
-```sh
-pytest --tb=short
-` `` `
 ```
 
----
+## Classic Flows
 
-## Document Tree
+### Flow 1: Generate A CI Quality Report
 
-Reports follow a strict containment hierarchy:
-
-```
-Report
-└── Chapter (H2)  ─ one or more
-    ├── Section (H3–H6)  ─ zero or more, nestable
-    │   ├── Section (H4)
-    │   │   └── Section (H5)
-    │   │       └── Section (H6)  ← deepest allowed
-    └── <content element>  ─ Paragraph, Table, CodeBlock, …
-```
-
-### Report
-
-`Report` is the root. It renders as an H1 heading.
+This flow is useful in CI jobs that already ran formatters, linters, tests, or
+coverage. MkForge receives the results and writes a Markdown artifact.
 
 ```python
-Report(
-    title="My Report",            # required, non-empty string
-    children=[],                  # optional initial Chapter list
-    metadata=None,                # optional dict → YAML frontmatter
-    toc=False,                    # include table of contents
-    auto_numbering=False,         # prefix headings with 1., 1.1., …
+from pathlib import Path
+
+from mkforge import Chapter, CodeBlock, Paragraph, Report, Section, Table
+
+
+def build_quality_report() -> Report:
+    """Build a CI quality report from collected command results."""
+    return Report(
+        title="CI Quality Report",
+        metadata={
+            "title": "CI Quality Report",
+            "status": "pass",
+            "draft": False,
+            "tags": ["ci", "quality"],
+        },
+        toc=True,
+        auto_numbering=True,
+    ).add(
+        Chapter("Summary").add(
+            Table(
+                headers=("Check", "Status", "Detail"),
+                rows=(
+                    ("format", "pass", "0 files changed"),
+                    ("ruff", "pass", "0 errors"),
+                    ("pytest", "pass", "171 tests, 100% coverage"),
+                ),
+            ),
+        ),
+        Chapter("Evidence").add(
+            Section("Test Command").add(
+                CodeBlock("uv run pytest", language="sh"),
+                Paragraph("The test suite completed successfully."),
+            ),
+        ),
+    )
+
+
+output = Path("work/reports/quality.md")
+build_quality_report().save(output)
+```
+
+Typical use:
+
+```bash
+uv run python scripts/write_quality_report.py
+```
+
+Recommended contract:
+
+- one `Summary` chapter for status;
+- one `Evidence` or `Details` chapter for raw command output;
+- `metadata["status"]` with `pass`, `fail`, or `warning`;
+- `toc=True` when the report has more than two chapters.
+
+### Flow 2: Generate Release Notes
+
+Use this flow when release metadata already exists in Python data: version,
+date, commit summaries, and compatibility notes.
+
+```python
+from mkforge import BulletList, Chapter, Paragraph, Report, Section
+
+
+def build_release_notes(version: str, changes: tuple[str, ...]) -> Report:
+    """Build release notes for a package version."""
+    return Report(
+        title=f"Release Notes {version}",
+        metadata={
+            "title": f"Release Notes {version}",
+            "version": version,
+            "draft": False,
+            "tags": ["release"],
+        },
+        toc=True,
+    ).add(
+        Chapter("Highlights").add(
+            BulletList(changes),
+        ),
+        Chapter("Upgrade Notes").add(
+            Section("Compatibility").add(
+                Paragraph("No breaking changes are expected for this release."),
+            ),
+            Section("Verification").add(
+                Paragraph("The release was built after the full quality gate."),
+            ),
+        ),
+    )
+
+
+release = build_release_notes(
+    "0.1.0",
+    (
+        "Added Markdown verification helpers.",
+        "Added project-specific validation helpers.",
+        "Improved report asset handling.",
+    ),
+)
+release.save("work/release-notes-0.1.0.md")
+```
+
+Recommended validation after rendering:
+
+```python
+from mkforge import validate_markdown_chapters, validate_markdown_yaml
+
+markdown = release.render()
+ok = (
+    validate_markdown_yaml(markdown, {"version": "0.1.0", "draft": False})
+    and validate_markdown_chapters(
+        markdown,
+        ("Highlights", "Upgrade Notes"),
+        strict=True,
+    )
 )
 ```
 
-`Report.add(*chapters)` appends `Chapter` objects and returns `self`
-(fluent API). Only `Chapter` instances are accepted; any other type
-raises `InvalidChildError`.
+### Flow 3: Build A Dependency Audit Report
 
-### Chapter
-
-`Chapter` renders as an H2 heading. It may contain `Section` objects
-and any content element.
+This flow is useful after tools such as `pip-audit`, `uv`, or internal package
+inventory scripts produce structured results.
 
 ```python
-Chapter(
-    title="Introduction",         # required, non-empty string
-    children=[],                  # optional initial children list
+from mkforge import Chapter, Paragraph, Report, Section, Table
+
+VULNERABILITIES = (
+    {
+        "name": "example-lib",
+        "version": "1.0.0",
+        "advisory": "GHSA-0000",
+        "fix": "1.0.1",
+    },
 )
-```
 
-`Chapter.add(*items)` accepts `Section` or any content element.
 
-### Section
+def audit_table() -> Table:
+    """Build a table from dependency audit findings."""
+    if not VULNERABILITIES:
+        return Table(("Package", "Version", "Advisory", "Fix"), ())
 
-`Section` renders as H3 through H6 depending on nesting depth.
-Depth is computed automatically from position in the tree:
+    return Table(
+        headers=("Package", "Version", "Advisory", "Fix"),
+        rows=tuple(
+            (
+                item["name"],
+                item["version"],
+                item["advisory"],
+                item["fix"],
+            )
+            for item in VULNERABILITIES
+        ),
+    )
 
-| Depth below Chapter | Heading level |
-| --- | --- |
-| 1 | H3 |
-| 2 | H4 |
-| 3 | H5 |
-| 4 | H6 |
 
-```python
-Section(
-    title="Background",           # required, non-empty string
-    children=[],                  # optional initial children list
-)
-```
-
-`Section.add(*items)` accepts nested `Section` or any content element.
-
-### Nesting rules
-
-- A `Report` only accepts `Chapter` children.
-- A `Chapter` or `Section` accepts `Section` or any content element.
-- Nesting a `Section` more than 4 levels below a `Chapter` raises
-  `ReportDepthError` at render time (H7 does not exist in Markdown).
-- Passing the wrong type raises `InvalidChildError` immediately.
-
----
-
-## Content Elements
-
-All content elements are **frozen dataclasses** — immutable after
-construction. Validation runs in `__post_init__` and raises immediately
-on bad input.
-
-### Paragraph
-
-A block of text. The `content` argument is either a plain string or a
-tuple of `Text`, `LineBreak`, and `Link` inline elements.
-
-```python
-# Plain string
-Paragraph("All tests passed.")
-
-# Inline elements
-Paragraph((
-    Text("Status: "),
-    Text("passing", style="bold"),
-    Text("."),
-))
-```
-
-- A plain-string paragraph renders as-is.
-- An inline-element paragraph renders as the concatenation of each
-  element's `.render()` output.
-- Empty strings are rejected with `ValueError`.
-
-### Text
-
-Inline text with an optional style.
-
-```python
-Text("hello")                          # plain (default)
-Text("hello", style="bold")            # **hello**
-Text("hello", style="italic")          # *hello*
-Text("hello", style="code")            # `hello`
-Text("hello", style="strikethrough")   # ~~hello~~
-```
-
-Valid styles: `"plain"` · `"bold"` · `"italic"` · `"code"` ·
-`"strikethrough"`.
-
-An empty string is accepted (renders as an empty inline span). An
-unknown style raises `ValueError`.
-
-### LineBreak
-
-A GFM hard line break — two trailing spaces followed by a newline.
-Use it inside a `Paragraph` tuple to force a new line without starting
-a new block.
-
-```python
-Paragraph((
-    Text("Line one."),
-    LineBreak(),
-    Text("Line two."),
-))
-```
-
-### Link
-
-An inline hyperlink.
-
-```python
-Link(url="https://example.com")                          # [](url)
-Link(url="https://example.com", text="Example")          # [Example](url)
-Link(url="https://example.com", text="Ex", title="Tip")  # [Ex](url "Tip")
-```
-
-- `url` is required and must be non-empty.
-- `text` and `title` are optional and may be empty strings.
-
-Use `Link` inside a `Paragraph` tuple:
-
-```python
-Paragraph((
-    Text("See "),
-    Link("https://example.com", text="the docs"),
-    Text(" for details."),
-))
-```
-
-### CodeBlock
-
-A fenced code block with an optional language hint for syntax
-highlighting.
-
-```python
-CodeBlock("x = 1 + 2")                    # plain fence
-CodeBlock("x = 1 + 2", language="python") # ```python fence
-CodeBlock("", language="sh")              # empty body is valid
-```
-
-Renders as:
-
-```
-```python
-x = 1 + 2
-` ``
-```
-
-### Table
-
-A GFM pipe table. `headers` is required and must be a non-empty tuple
-of strings. `rows` is optional; each row must be a tuple with the same
-length as `headers`.
-
-```python
-Table(
-    headers=("Name", "Score", "Grade"),
-    rows=(
-        ("Alice", "95", "A"),
-        ("Bob",   "82", "B"),
+report = Report(
+    title="Dependency Audit",
+    metadata={"title": "Dependency Audit", "draft": False},
+).add(
+    Chapter("Summary").add(
+        Paragraph(f"Findings: {len(VULNERABILITIES)}"),
+    ),
+    Chapter("Findings").add(
+        Section("Known Vulnerabilities").add(audit_table()),
     ),
 )
 ```
 
-When your data is naturally organized by column, use `Table.from_columns`.
-Mapping order defines the rendered column order.
+Recommended convention:
+
+- generate an empty table with headers when no findings exist;
+- keep raw scanner JSON outside the report unless humans need to read it;
+- include exact fix versions when the scanner provides them.
+
+### Flow 4: Save A Report With Local Images
+
+Use `Image` when your report should reference charts, screenshots, or generated
+figures.
+
+```python
+from pathlib import Path
+
+from mkforge import Chapter, Image, Paragraph, Report, Section
+
+chart_path = Path("work/charts/coverage.png")
+
+report = Report("Coverage Report").add(
+    Chapter("Coverage").add(
+        Section("Trend").add(
+            Image(chart_path, alt="Coverage trend"),
+            Paragraph("The chart was generated by the coverage job."),
+        ),
+    ),
+)
+
+report.save("work/output/coverage.md", copy_assets=True)
+```
+
+When `copy_assets=True`, MkForge copies local images into an `assets/`
+directory next to the Markdown output and rewrites links.
+
+```text
+work/output/
++-- assets/
+|   +-- coverage.png
++-- coverage.md
+```
+
+Use this mode when the Markdown file will be uploaded, archived, or moved.
+
+### Flow 5: Verify Markdown Before Publishing
+
+Verification checks Markdown and GitHub Flavored Markdown conformance. It
+returns diagnostics rather than raising for normal document issues.
+
+```python
+from mkforge import VerificationSettings, verify_markdown
+
+settings = VerificationSettings(
+    disabled=frozenset({"MD013"}),
+)
+
+report = verify_markdown(markdown, settings=settings)
+
+if not report.passed:
+    for diagnostic in report.diagnostics:
+        print(
+            f"{diagnostic.rule_id} "
+            f"line {diagnostic.line}: {diagnostic.message}",
+        )
+    raise SystemExit(1)
+```
+
+Use this flow when:
+
+- Markdown is generated by MkForge and should be checked before publishing;
+- Markdown comes from another tool and must pass the same policy;
+- CI should produce actionable rule IDs and line numbers.
+
+### Flow 6: Validate A Project Document Contract
+
+Validation checks your project rules: frontmatter values, chapter order,
+heading sequence, and image existence.
+
+```python
+from mkforge import (
+    validate_markdown_chapters,
+    validate_markdown_headings,
+    validate_markdown_images,
+    validate_markdown_yaml,
+)
+
+ok = (
+    validate_markdown_yaml(markdown, {"draft": False, "version": str})
+    and validate_markdown_chapters(
+        markdown,
+        ("Summary", "Findings", "Remediation"),
+    )
+    and validate_markdown_headings(
+        markdown,
+        ((2, "Summary"), (2, "Findings"), (2, "Remediation")),
+    )
+    and validate_markdown_images(markdown, base_path="work/report.md")
+)
+```
+
+Use this flow when the document is syntactically valid Markdown, but your
+project also requires specific content.
+
+### Flow 7: Use MkForge In A Documentation Pipeline
+
+MkForge does not build sites. It produces Markdown that another tool can
+consume.
+
+Typical flow:
+
+1. Collect structured data in Python.
+2. Build a `Report`.
+3. Render or save Markdown.
+4. Verify Markdown conformance.
+5. Validate required project content.
+6. Hand the Markdown file to MkDocs, Scribpy, GitHub, GitLab, or another
+   documentation surface.
+
+```python
+from pathlib import Path
+
+from mkforge import Chapter, Paragraph, Report, verify_markdown_file
+
+output = Path("docs/generated/quality.md")
+Report("Quality").add(
+    Chapter("Summary").add(
+        Paragraph("Generated during the documentation build."),
+    ),
+).save(output)
+
+verification = verify_markdown_file(output)
+if not verification.passed:
+    raise SystemExit("Generated Markdown failed verification.")
+```
+
+## Report Building Blocks
+
+### Report
+
+`Report` is the root object. It renders as one H1 heading.
+
+```python
+Report(
+    title="My Report",
+    children=[],
+    metadata=None,
+    toc=False,
+    auto_numbering=False,
+)
+```
+
+Rules:
+
+- `title` must be a non-empty string.
+- `children` must be a list of `Chapter` objects.
+- `metadata` must be `None` or a dictionary with string keys.
+- `toc` and `auto_numbering` must be booleans.
+- `Report.add()` accepts only `Chapter` objects.
+
+### Chapter
+
+`Chapter` renders as H2.
+
+```python
+Chapter("Summary").add(
+    Paragraph("All checks passed."),
+)
+```
+
+Rules:
+
+- `title` must be a non-empty string.
+- children may be content elements or `Section` objects.
+- `Chapter.add()` returns the same chapter, enabling fluent construction.
+
+### Section
+
+`Section` renders as H3 through H6 depending on nesting depth.
+
+```python
+Chapter("Details").add(
+    Section("Lint").add(
+        Section("Ruff").add(
+            Paragraph("No violations."),
+        ),
+    ),
+)
+```
+
+Rules:
+
+- sections can nest under chapters or other sections;
+- nesting below H6 raises `ReportDepthError` during rendering;
+- use chapters for major report phases and sections for details.
+
+### Paragraph And Inline Elements
+
+Use a string for simple paragraphs:
+
+```python
+Paragraph("All checks passed.")
+```
+
+Use a tuple for rich inline content:
+
+```python
+Paragraph(
+    (
+        Text("Status: "),
+        Text("passed", style="bold"),
+        Text(". See "),
+        Link("https://example.com", text="details"),
+        Text("."),
+    ),
+)
+```
+
+Supported `Text` styles:
+
+- `plain`
+- `bold`
+- `italic`
+- `code`
+- `strikethrough`
+
+Use `LineBreak()` inside a paragraph tuple when you need a Markdown hard line
+break.
+
+### CodeBlock
+
+Use `CodeBlock` for command output, snippets, or configuration fragments.
+
+```python
+CodeBlock("uv run pytest\n171 passed", language="sh")
+```
+
+The language is optional but recommended when the consumer supports syntax
+highlighting.
+
+### Tables
+
+Use `Table` when data is naturally row-oriented:
+
+```python
+Table(
+    headers=("Check", "Status"),
+    rows=(
+        ("format", "pass"),
+        ("tests", "pass"),
+    ),
+)
+```
+
+Use `Table.from_columns` when data is naturally column-oriented:
 
 ```python
 Table.from_columns(
     {
-        "Name": ("Alice", "Bob"),
-        "Score": ("95", "82"),
-        "Grade": ("A", "B"),
+        "Check": ("format", "tests"),
+        "Status": ("pass", "pass"),
     },
 )
 ```
 
-Renders as:
+Rules:
 
-```markdown
-| Name | Score | Grade |
-| --- | --- | --- |
-| Alice | 95 | A |
-| Bob | 82 | B |
-```
+- headers must be a non-empty tuple of strings;
+- each row must have the same number of cells as the headers;
+- all columns passed to `from_columns` must have the same length.
 
-Cell strings may be empty. A row with the wrong number of cells raises
-`InvalidTableError`. `Table.from_columns` also raises `InvalidTableError`
-when columns have different lengths. An empty `headers` tuple raises
-`InvalidTableError`.
+### Lists
 
-### BulletList and NumberedList
-
-Unordered and ordered lists. Both require a **non-empty** tuple of
-strings.
+Use tuples, not lists:
 
 ```python
-BulletList(("apple", "banana", "cherry"))
-# - apple
-# - banana
-# - cherry
-
-NumberedList(("first step", "second step", "third step"))
-# 1. first step
-# 2. second step
-# 3. third step
+BulletList(("lint passed", "tests passed", "coverage passed"))
+NumberedList(("collect evidence", "write report", "publish artifact"))
 ```
 
-An empty tuple raises `ValueError`. A list passed instead of a tuple
-raises `TypeError`.
+Empty list tuples are rejected because empty Markdown lists are not useful
+report content.
 
-### Image
+### Images
 
-A Markdown image reference. `path` is required and non-empty. `alt`
-and `title` are optional.
+Use `Image` for local files or remote image URLs:
 
 ```python
-Image("chart.png")                               # ![](chart.png)
-Image("chart.png", alt="Chart")                  # ![Chart](chart.png)
-Image("chart.png", alt="Chart", title="Monthly") # ![Chart](chart.png "Monthly")
-Image("https://example.com/img.png", alt="Logo") # remote URL
+Image("assets/chart.png", alt="Coverage chart")
+Image("https://example.com/chart.png", alt="Remote chart")
 ```
 
-MkForge does **not** validate the path at construction time. Local path
-existence is checked only when you call `report.save(...)`.
+Local image existence is checked when saving. Remote images are downloaded only
+when `copy_assets=True`.
 
-### HorizontalRule
+### Quotes And Rules
 
-A `---` separator. No arguments.
+Use `BlockQuote` for short callouts:
+
+```python
+BlockQuote("Generated by automation.\nReviewed by the release owner.")
+```
+
+Use `HorizontalRule` to separate sections inside a chapter:
 
 ```python
 HorizontalRule()
-# ---
 ```
 
-### BlockQuote
+## Rendering And Saving
 
-A Markdown block quote. Each line of `content` is prefixed with `> `.
+### Render To A String
 
 ```python
-BlockQuote("Generated by automation.\nReviewed by humans.")
-# > Generated by automation.
-# > Reviewed by humans.
+markdown = report.render()
 ```
 
-An empty string is accepted (renders as `> `). Non-string content
-raises `TypeError`.
+Rendering is deterministic and side-effect-free. It does not write files or
+copy assets.
 
----
-
-## Rendering
-
-### Render to string
+### Save To A File
 
 ```python
-markdown_text = report.render()
+report.save("work/report.md")
 ```
 
-`render()` returns the full Markdown document as a `str`. It never
-writes to disk. The call is deterministic and side-effect-free.
+Saving:
 
-### Save to file
+1. Validates local image paths.
+2. Renders Markdown.
+3. Creates parent directories when needed.
+4. Writes UTF-8 text.
+
+### Save And Bundle Assets
 
 ```python
-report.save("output/report.md")
-report.save("output/report.md", copy_assets=False)  # default
-report.save("output/report.md", copy_assets=True)   # bundle images
+report.save("work/report.md", copy_assets=True)
 ```
 
-`save()` does the following:
+Saving with `copy_assets=True` additionally copies local images and downloads
+allowed remote images into an `assets/` directory next to the output file.
 
-1. Collects every local image path in the tree.
-2. Verifies that all local paths exist on disk → raises
-   `MissingAssetError` if any are missing.
-3. Renders the report to a string.
-4. If `copy_assets=True`, copies local images into `assets/` next to
-   the output file and rewrites image links; downloads remote images
-   with SSRF protection.
-5. Writes the UTF-8 Markdown file, creating parent directories as
-   needed.
+## Frontmatter, TOC, And Numbering
 
-### Asset management
+### YAML Frontmatter
 
-When `copy_assets=True`:
-
-- **Local images** are copied to `<output_dir>/assets/<filename>`.
-  Name collisions are resolved with a numeric suffix
-  (`image.png`, `image_1.png`, …).
-- **Remote images** (URLs starting with `://`, `//`, or `www.`) are
-  downloaded. Only `http://`, `https://`, `ftp://`, and `ftps://`
-  schemes are permitted. Loopback and private IP addresses are blocked
-  (SSRF protection). Failed downloads raise `DownloadAssetError`.
-- Image references in the rendered Markdown are rewritten to point
-  inside `assets/`.
-
----
-
-## Report Options
-
-### YAML frontmatter
-
-Pass a `dict` as `metadata` to prepend a YAML frontmatter block.
-Keys must be non-empty strings. Values may be scalars, lists, or
-`None`.
+Pass `metadata` to prepend a YAML frontmatter block.
 
 ```python
 Report(
     title="Audit",
     metadata={
-        "title":   "Audit",
-        "author":  "Alice",
-        "date":    "2026-06-06",
+        "title": "Audit",
         "version": "1.0.0",
-        "tags":    ["quality", "audit"],
-        "draft":   False,
+        "draft": False,
+        "tags": ["security", "release"],
         "reviewed": None,
     },
 )
 ```
 
-Renders as:
+Supported values:
 
-```yaml
----
-title: Audit
-author: Alice
-date: 2026-06-06
-version: 1.0.0
-tags:
-  - quality
-  - audit
-draft: false
-reviewed: null
----
-```
-
-Supported value types:
-
-| Python type | YAML rendering |
+| Python value | Markdown frontmatter |
 | --- | --- |
-| `str` | verbatim string |
-| `int` / `float` | `str(value)` |
-| `bool` | `true` / `false` (lowercase) |
+| `str` | string value |
+| `int` or `float` | number text |
+| `bool` | `true` or `false` |
 | `None` | `null` |
-| `list` / `tuple` | YAML sequence with `  - ` items |
+| `list` or `tuple` | YAML sequence |
 
-### Table of contents
+### Table Of Contents
 
-Set `toc=True` to insert a nested Markdown list linking to every
-chapter and section heading, positioned after the H1 title.
+Set `toc=True` to render a linked table of contents after the H1 heading.
 
 ```python
-Report(title="Report", toc=True).add(
-    Chapter("Overview").add(
-        Section("Background"),
-        Section("Scope"),
+Report("Report", toc=True).add(
+    Chapter("Summary"),
+    Chapter("Details").add(
+        Section("Logs"),
     ),
-    Chapter("Results"),
 )
 ```
 
-TOC fragment:
+The TOC uses GitHub-style anchor slugs.
 
-```markdown
-- [Overview](#overview)
-  - [Background](#background)
-  - [Scope](#scope)
-- [Results](#results)
-```
+### Automatic Numbering
 
-Anchor slugs follow GitHub's rules: lowercase, spaces replaced with
-hyphens, non-word characters removed.
-
-### Automatic heading numbering
-
-Set `auto_numbering=True` to prefix every heading with a dotted
-counter.
+Set `auto_numbering=True` to number chapters and sections.
 
 ```python
-Report(title="Doc", auto_numbering=True).add(
-    Chapter("Overview").add(
-        Section("Background"),
-        Section("Scope"),
+Report("Report", auto_numbering=True).add(
+    Chapter("Summary").add(
+        Section("Status"),
     ),
-    Chapter("Results"),
 )
 ```
 
-Headings produced:
+Rendered headings:
 
 ```markdown
-## 1. Overview
-### 1.1. Background
-### 1.2. Scope
-## 2. Results
+## 1. Summary
+
+### 1.1. Status
 ```
 
----
+## Verification
 
-## Markdown Verification
-
-MkForge includes a Markdown conformance checker that implements the
-[markdownlint](https://github.com/DavidAnson/markdownlint) rule set
-(MD001–MD047) plus GitHub Flavored Markdown rules (GFM001–GFM003)
-and a local resource existence rule (MKF001).
-
-### Verify a string
+Verification checks Markdown conformance. It returns a `VerificationReport`.
 
 ```python
 from mkforge import verify_markdown
 
-report = verify_markdown("# Title\n\nSome content.\n")
+verification = verify_markdown("# Title\n\nContent.\n")
 
-if report.passed:
-    print("No issues found.")
-else:
-    for d in report.diagnostics:
-        print(f"{d.rule_id} line {d.line}: {d.message}")
+if verification.passed:
+    print("Markdown is clean.")
 ```
 
-### Verify a file
+Diagnostics include:
+
+| Field | Meaning |
+| --- | --- |
+| `rule_id` | Rule identifier such as `MD018` or `GFM001` |
+| `name` | Human-readable rule name |
+| `line` | 1-based line number |
+| `column` | 1-based column number |
+| `message` | Actionable diagnostic message |
+| `category` | Diagnostic category |
+| `severity` | Diagnostic severity |
+
+### Verify A File
 
 ```python
 from mkforge import verify_markdown_file
 
-report = verify_markdown_file("docs/README.md")
+verification = verify_markdown_file("docs/report.md")
 ```
 
-File verification also checks that local image and link targets exist
-on disk (MKF001).
+File verification can check local Markdown resources, including image and link
+targets, relative to the file path.
 
-### VerificationReport
-
-`VerificationReport` is a frozen dataclass with two fields:
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `rule_set_name` | `str` | Always `"markdown-compliance"` |
-| `diagnostics` | `tuple[Diagnostic, ...]` | Sorted by `(line, column, rule_id)` |
-
-The `passed` property returns `True` when `diagnostics` is empty.
-
-### Diagnostic fields
-
-| Field | Type | Example |
-| --- | --- | --- |
-| `rule_id` | `str` | `"MD018"` |
-| `name` | `str` | `"no-missing-space-atx"` |
-| `line` | `int` | `3` |
-| `column` | `int` | `1` |
-| `message` | `str` | `"No space after '#' in ATX heading"` |
-| `category` | `str` | `"markdown-conformance"` |
-| `severity` | `str` | `"warning"` |
-
-### Disabling rules
-
-Pass a `VerificationSettings` object with a `disabled` frozenset:
+### Disable Rules
 
 ```python
 from mkforge import VerificationSettings, verify_markdown
 
-settings = VerificationSettings(disabled=frozenset({"MD013", "MD041"}))
-report = verify_markdown(source, settings=settings)
+settings = VerificationSettings(disabled=frozenset({"MD013"}))
+verification = verify_markdown(markdown, settings=settings)
 ```
 
-Rule identifiers are case-insensitive in `disabled`.
+Use disabled rules sparingly. Prefer fixing generated Markdown when possible.
 
-### Custom rules
-
-A custom rule is any callable with signature
-`(MarkdownSource) -> tuple[Diagnostic, ...]`.
+### Configure Rule Options
 
 ```python
-from mkforge import (
-    Diagnostic, MarkdownSource, MarkdownRule, verify_markdown,
+settings = VerificationSettings(
+    rules={"MD013": {"line_length": 120}},
 )
-
-def require_toc(source: MarkdownSource) -> tuple[Diagnostic, ...]:
-    if "## Table of Contents" not in source.text:
-        return (
-            Diagnostic(
-                rule_id="ACME001",
-                name="missing-toc",
-                line=1,
-                column=1,
-                message="Document must include a Table of Contents section.",
-            ),
-        )
-    return ()
-
-report = verify_markdown(source_text, custom_rules=(require_toc,))
+verification = verify_markdown(markdown, settings=settings)
 ```
 
-Custom rules are appended **after** all built-in rules. Their
-diagnostics participate in the same sort and disable logic.
+### Add A Custom Rule
 
-### TOML settings
+```python
+from mkforge import Diagnostic, MarkdownSource, verify_markdown
 
-Place a `.mkforge` or `.mkforge.toml` file next to your Markdown, or
-add a `[tool.mkforge.verification]` table to `pyproject.toml`.
-Settings are discovered automatically when you call
-`verify_markdown_file`.
 
-`.mkforge` example:
+def reject_internal_marker(source: MarkdownSource) -> tuple[Diagnostic, ...]:
+    """Reject an internal marker before publishing."""
+    diagnostics: list[Diagnostic] = []
+    for line in source.lines:
+        column = line.text.find("INTERNAL_ONLY")
+        if column >= 0:
+            diagnostics.append(
+                Diagnostic(
+                    rule_id="ACME001",
+                    name="internal-marker",
+                    line=line.number,
+                    column=column + 1,
+                    message="Remove INTERNAL_ONLY before publishing.",
+                ),
+            )
+    return tuple(diagnostics)
+
+
+verification = verify_markdown(
+    markdown,
+    custom_rules=(reject_internal_marker,),
+)
+```
+
+Custom rules are useful for local publishing policy. They should not duplicate
+built-in Markdown rules.
+
+### Settings Files
+
+`verify_markdown_file` can discover settings from `.mkforge`,
+`.mkforge.toml`, or `[tool.mkforge.verification]` in `pyproject.toml`.
+
+Example `.mkforge.toml`:
 
 ```toml
 [verification]
@@ -680,7 +866,7 @@ disabled = ["MD013"]
 line_length = 120
 ```
 
-`pyproject.toml` example:
+Example `pyproject.toml`:
 
 ```toml
 [tool.mkforge.verification]
@@ -690,38 +876,13 @@ disabled = ["MD034"]
 line_length = 120
 ```
 
-Supported settings keys:
+## Validation
 
-| Key | Type | Description |
-| --- | --- | --- |
-| `disabled` | list of strings | Rule IDs to skip |
-| `rules.<ID>.<option>` | any | Per-rule option overrides |
+Validation checks content contracts and returns `True` or `False`.
 
----
+Use validation after rendering or before accepting external Markdown.
 
-## Markdown Validation
-
-Validation checks project-specific document contracts and returns booleans.
-It is intentionally separate from Markdown verification:
-
-- verification checks Markdown/GFM conformance and returns diagnostics;
-- validation checks expected content contracts and returns `True` or `False`.
-
-The public validation helpers are:
-
-```python
-from mkforge import (
-    validate_markdown_chapters,
-    validate_markdown_headings,
-    validate_markdown_images,
-    validate_markdown_yaml,
-)
-```
-
-### Validate YAML frontmatter
-
-`validate_markdown_yaml(markdown, expected, strict=False)` checks the YAML
-frontmatter block at the start of a Markdown document.
+### YAML Frontmatter
 
 ```python
 from mkforge import validate_markdown_yaml
@@ -738,22 +899,13 @@ tags:
 # Release Notes
 """
 
-validate_markdown_yaml(markdown, {"draft": False})          # True
-validate_markdown_yaml(markdown, {"draft": bool})           # True
-validate_markdown_yaml(markdown, {"draft": "false"})        # False
+validate_markdown_yaml(markdown, {"draft": False})
+validate_markdown_yaml(markdown, {"version": int})
 ```
 
-By default, the expected mapping is a minimum contract: the document may
-contain extra frontmatter keys.
+Default mode is a minimum contract: extra keys are allowed.
 
-```python
-validate_markdown_yaml(
-    markdown,
-    {"draft": False, "version": int},
-)  # True
-```
-
-With `strict=True`, the document must contain exactly the expected keys.
+Strict mode requires the complete frontmatter mapping to match:
 
 ```python
 validate_markdown_yaml(
@@ -765,198 +917,189 @@ validate_markdown_yaml(
         "tags": ["release", "docs"],
     },
     strict=True,
-)  # True
+)
 ```
 
-Expected concrete values are checked by type and value. Expected Python types
-such as `bool`, `int`, or `str` check only the parsed value type.
-
-### Validate chapter order
-
-`validate_markdown_chapters(markdown, expected, strict=False)` checks H2
-chapter titles, meaning headings written as `## Chapter`.
+### Chapter Order
 
 ```python
 from mkforge import validate_markdown_chapters
 
-markdown = """# Report
-
-## Context
-
-## Architecture
-
-## Tests
-"""
-
-validate_markdown_chapters(markdown, ("Context", "Tests"))  # True
-validate_markdown_chapters(markdown, ("Tests", "Context"))  # False
+validate_markdown_chapters(
+    markdown,
+    ("Summary", "Findings", "Remediation"),
+)
 ```
 
-By default, expected chapters must appear in order, but other chapters may
-exist between them. With `strict=True`, the complete H2 chapter sequence must
-match exactly.
+Default mode checks that expected H2 chapters appear in order. Other chapters
+may appear between them.
+
+Strict mode requires the complete H2 sequence:
 
 ```python
 validate_markdown_chapters(
     markdown,
-    ("Context", "Architecture", "Tests"),
+    ("Summary", "Findings", "Remediation"),
     strict=True,
-)  # True
+)
 ```
 
-### Validate heading levels
-
-`validate_markdown_headings(markdown, expected, strict=False)` checks both the
-heading level and the heading title. Use it when you need to distinguish H2
-from H3, H4, and so on.
-
-Expected headings are written as `(level, title)` pairs:
+### Heading Levels
 
 ```python
 from mkforge import validate_markdown_headings
 
-markdown = """# Report
-
-## Context
-
-### Scope
-
-### Risks
-
-## Tests
-"""
-
-validate_markdown_headings(
-    markdown,
-    ((2, "Context"), (3, "Scope"), (2, "Tests")),
-)  # True
-```
-
-This fails because `Scope` is level 3, not level 2:
-
-```python
-validate_markdown_headings(markdown, ((2, "Scope"),))  # False
-```
-
-This fails because the order is wrong:
-
-```python
-validate_markdown_headings(
-    markdown,
-    ((3, "Risks"), (3, "Scope")),
-)  # False
-```
-
-With `strict=True`, the complete heading sequence must match exactly:
-
-```python
 validate_markdown_headings(
     markdown,
     (
-        (1, "Report"),
-        (2, "Context"),
-        (3, "Scope"),
-        (3, "Risks"),
-        (2, "Tests"),
+        (2, "Summary"),
+        (3, "Status"),
+        (2, "Findings"),
     ),
-    strict=True,
-)  # True
+)
 ```
 
-Use `validate_markdown_chapters` when you only care about H2 chapters by title.
-Use `validate_markdown_headings` when the level is part of the contract.
+Use this when heading level is part of the contract.
 
-### Validate images
-
-`validate_markdown_images(markdown, base_path=None, timeout=5.0)` checks every
-Markdown image reference outside fenced code blocks.
+### Images
 
 ```python
 from mkforge import validate_markdown_images
 
-markdown = "# Report\n\n![Chart](assets/chart.png)\n"
-
 validate_markdown_images(markdown, base_path="docs/report.md")
 ```
 
-Local images are resolved relative to `base_path`. If `base_path` is a file,
-images resolve from its parent directory. If `base_path` is omitted, relative
-paths resolve from the current working directory.
+Local images resolve relative to `base_path`. If `base_path` is a file, images
+resolve from the parent directory. Remote image checks contact only HTTP and
+HTTPS URLs, and private or loopback hosts are rejected.
 
-Remote images are checked with HTTP `HEAD`, then HTTP `GET` as a fallback.
-Only HTTP(S) URLs are contacted. Private and loopback hosts are rejected before
-network access.
+## Assets
+
+MkForge treats image references carefully:
+
+- construction accepts local paths and URLs;
+- rendering keeps the path exactly as provided;
+- saving validates local paths;
+- `copy_assets=True` copies or downloads assets and rewrites image links.
+
+Local asset example:
 
 ```python
-validate_markdown_images(
-    "# Remote\n\n![Logo](https://www.python.org/static/img/python-logo.png)\n",
-    timeout=3.0,
+from mkforge import Chapter, Image, Report
+
+report = Report("Dashboard").add(
+    Chapter("Screenshots").add(
+        Image("work/screenshots/home.png", alt="Home dashboard"),
+    ),
+)
+
+report.save("work/output/dashboard.md", copy_assets=True)
+```
+
+Remote asset notes:
+
+- HTTP and HTTPS URLs are supported for remote image validation.
+- Asset copying also permits supported remote schemes from the asset layer.
+- Private and loopback addresses are blocked to reduce SSRF risk.
+- Failed remote downloads raise `DownloadAssetError`.
+
+## Errors
+
+| Exception | Raised when |
+| --- | --- |
+| `InvalidChildError` | A container receives an unsupported child |
+| `InvalidTableError` | A table has empty headers or mismatched rows |
+| `ReportDepthError` | Section nesting would render below H6 |
+| `MissingAssetError` | A local image path is missing during save |
+| `DownloadAssetError` | A remote image cannot be downloaded |
+
+Most construction errors are `TypeError` or `ValueError`. They are raised close
+to the boundary so bad inputs fail early.
+
+## Patterns And Recommendations
+
+### Build Small Functions
+
+Prefer small functions that return `Chapter`, `Section`, or content elements.
+
+```python
+def summary_chapter(status: str) -> Chapter:
+    """Build the summary chapter."""
+    return Chapter("Summary").add(
+        Paragraph(f"Overall status: {status}."),
+    )
+```
+
+This keeps report assembly readable:
+
+```python
+report = Report("Quality").add(
+    summary_chapter("pass"),
+    evidence_chapter(),
 )
 ```
 
-Remote checks depend on actual network access and server behavior.
+### Keep Data Separate From Presentation
 
-### Combine validation gates
-
-The helpers are boolean by design, so they compose naturally in scripts or CI
-jobs:
+Collect raw data first, then turn it into MkForge objects.
 
 ```python
-ok = (
-    validate_markdown_yaml(markdown, {"draft": False, "version": int})
-    and validate_markdown_chapters(
-        markdown,
-        ("Context", "Architecture", "Tests"),
-        strict=True,
-    )
-    and validate_markdown_headings(
-        markdown,
-        ((2, "Context"), (3, "Scope"), (2, "Architecture")),
-    )
-    and validate_markdown_images(markdown, base_path="docs/report.md")
-)
+rows = tuple((item.name, item.status) for item in checks)
+table = Table(("Check", "Status"), rows)
 ```
 
-Run the executable validation demo for a complete walkthrough:
+This makes tests simpler and avoids mixing subprocess logic with report
+composition.
 
-```bash
-uv run python demo_validation.py
+### Use Tables For Dense Status
+
+Use tables for repeated structured facts:
+
+- checks and status;
+- dependencies and versions;
+- metrics and thresholds;
+- files and diagnostics.
+
+Use paragraphs for interpretation.
+
+### Use Validation For Release Gates
+
+A generated report can be valid Markdown but still miss a required chapter.
+Use validation for those business rules.
+
+```python
+if not validate_markdown_chapters(markdown, ("Summary", "Risks"), strict=True):
+    raise SystemExit("Report does not match the release contract.")
 ```
 
----
+### Save After Verification When Possible
 
-## Error Reference
+For generated Markdown, a useful sequence is:
 
-| Exception | When raised | Key attributes |
-| --- | --- | --- |
-| `InvalidChildError` | Wrong child type added to a container | `.parent`, `.child` |
-| `InvalidTableError` | Empty headers or row cell count mismatch | — |
-| `ReportDepthError` | Section nesting exceeds H6 | — |
-| `MissingAssetError` | Local image path does not exist at save time | `.missing` (tuple of `Path`) |
-| `DownloadAssetError` | Remote image download fails | `.url`, `.reason` |
+1. Build the report.
+2. Render Markdown.
+3. Verify Markdown.
+4. Validate project contracts.
+5. Save the report.
 
-All exceptions inherit from `MkForgeError` → `Exception`.
+If you need asset copying, save first, then verify the saved file with
+`verify_markdown_file`.
 
----
+## Complete End-To-End Script
 
-## Complete Example
-
-The following script generates a full CI quality report with
-frontmatter, TOC, numbering, all content element types, and
-Markdown verification and validation of its own output.
+This script builds a release quality report, verifies Markdown conformance,
+validates project contracts, and saves the final artifact.
 
 ```python
 from pathlib import Path
+
 from mkforge import (
     BlockQuote,
     BulletList,
     Chapter,
     CodeBlock,
     HorizontalRule,
-    Image,
-    LineBreak,
     Link,
-    NumberedList,
     Paragraph,
     Report,
     Section,
@@ -969,85 +1112,123 @@ from mkforge import (
     verify_markdown,
 )
 
-report = Report(
-    title="CI Quality Report",
-    metadata={
-        "title":   "CI Quality Report",
-        "author":  "CI Bot",
-        "date":    "2026-06-06",
-        "version": "1.0.0",
-        "tags":    ["ci", "quality"],
-        "draft":   False,
-    },
-    toc=True,
-    auto_numbering=True,
-).add(
-    Chapter("Summary").add(
-        Paragraph((
-            Text("Build "),
-            Text("passed", style="bold"),
-            Text("."),
-        )),
-        Table(
-            headers=("Check", "Status", "Duration"),
-            rows=(
-                ("lint",     "pass", "3 s"),
-                ("tests",    "pass", "12 s"),
-                ("coverage", "100 %", "—"),
+
+def build_report() -> Report:
+    """Build the release quality report."""
+    return Report(
+        title="Release Quality Report",
+        metadata={
+            "title": "Release Quality Report",
+            "version": "0.1.0",
+            "draft": False,
+            "tags": ["release", "quality"],
+        },
+        toc=True,
+        auto_numbering=True,
+    ).add(
+        Chapter("Summary").add(
+            Paragraph(
+                (
+                    Text("Release status: "),
+                    Text("ready", style="bold"),
+                    Text("."),
+                ),
+            ),
+            Table(
+                headers=("Gate", "Status", "Detail"),
+                rows=(
+                    ("format", "pass", "0 files changed"),
+                    ("lint", "pass", "0 violations"),
+                    ("tests", "pass", "171 passed, 100% coverage"),
+                ),
             ),
         ),
-    ),
-    Chapter("Lint").add(
-        Section("Tool").add(
-            Paragraph((
-                Text("Using "),
-                Text("ruff", style="code"),
-                Text(" v0.4.0."),
-            )),
-            BulletList(("E: errors", "W: warnings", "I: isort")),
+        Chapter("Evidence").add(
+            Section("Commands").add(
+                CodeBlock(
+                    "make check\nmake check-dist",
+                    language="sh",
+                ),
+            ),
+            Section("Review Notes").add(
+                BulletList(
+                    (
+                        "The package builds successfully.",
+                        "The quality pipeline passes.",
+                        "The distribution metadata is valid.",
+                    ),
+                ),
+                BlockQuote("Release approval remains a human decision."),
+            ),
         ),
-        Section("Results").add(
-            CodeBlock("ruff check src/\nAll checks passed.", language="sh"),
-        ),
-    ),
-    Chapter("Tests").add(
-        Section("Runner").add(
-            NumberedList(("collect", "run", "report")),
-        ),
-        Section("Output").add(
-            CodeBlock("pytest --tb=short\n5 passed in 0.12 s", language="sh"),
-            BlockQuote("All tests passed.\nCoverage: 100 %."),
+        Chapter("Links").add(
+            Paragraph(
+                (
+                    Text("Repository: "),
+                    Link(
+                        "https://github.com/antoinebarre/mkforge",
+                        text="mkforge",
+                    ),
+                    Text("."),
+                ),
+            ),
             HorizontalRule(),
-            Paragraph((
-                Text("Report generated by "),
-                Link("https://github.com/example/mkforge", text="MkForge"),
-                Text("."),
-            )),
+            Paragraph("Generated by MkForge."),
         ),
-    ),
-)
+    )
 
-# Render to string and verify conformance
-markdown = report.render()
-settings = VerificationSettings(disabled=frozenset({"MD013"}))
-result = verify_markdown(markdown, settings=settings)
 
-if result.passed:
-    print("Markdown is conformant.")
-else:
-    for d in result.diagnostics:
-        print(f"  {d.rule_id} line {d.line}: {d.message}")
+def assert_quality(markdown: str) -> None:
+    """Check Markdown conformance and project contracts."""
+    verification = verify_markdown(
+        markdown,
+        settings=VerificationSettings(disabled=frozenset({"MD013"})),
+    )
+    if not verification.passed:
+        for diagnostic in verification.diagnostics:
+            print(
+                f"{diagnostic.rule_id} "
+                f"line {diagnostic.line}: {diagnostic.message}",
+            )
+        raise SystemExit(1)
 
-# Validate project-specific document contracts
-is_valid = (
-    validate_markdown_yaml(markdown, {"draft": False})
-    and validate_markdown_chapters(markdown, ("Summary", "Lint", "Tests"))
-    and validate_markdown_headings(markdown, ((2, "Summary"), (2, "Lint")))
-)
-print(f"Validation passed: {is_valid}")
+    valid = (
+        validate_markdown_yaml(
+            markdown,
+            {"version": "0.1.0", "draft": False},
+        )
+        and validate_markdown_chapters(
+            markdown,
+            ("Summary", "Evidence", "Links"),
+        )
+        and validate_markdown_headings(
+            markdown,
+            ((2, "1. Summary"), (2, "2. Evidence"), (2, "3. Links")),
+        )
+    )
+    if not valid:
+        raise SystemExit("Generated report does not match the contract.")
 
-# Save to disk
-output = Path("output/ci_quality_report.md")
-report.save(output)
-print(f"Saved to {output}")
+
+def main() -> None:
+    """Generate and save the release quality report."""
+    report = build_report()
+    markdown = report.render()
+    assert_quality(markdown)
+
+    output = Path("work/release-quality-report.md")
+    report.save(output)
+    print(f"Saved {output}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Run the repository demos for smaller examples:
+
+```bash
+uv run python demo_report.py
+uv run python demo_verif.py
+uv run python demo_validation.py
 ```
