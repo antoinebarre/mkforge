@@ -28,6 +28,7 @@ For exhaustive class, function, helper, rule, and feature contracts, see
 - [Frontmatter, TOC, And Numbering](#frontmatter-toc-and-numbering)
 - [Verification](#verification)
 - [Validation](#validation)
+- [Heading Slugification](#heading-slugification)
 - [Assets](#assets)
 - [Errors](#errors)
 - [Patterns And Recommendations](#patterns-and-recommendations)
@@ -82,6 +83,12 @@ from mkforge import (
     verify_markdown,
     verify_markdown_file,
 )
+```
+
+For heading anchor slugs:
+
+```python
+from mkforge import slugify_heading
 ```
 
 ## How To Think About MkForge
@@ -972,6 +979,35 @@ validate_markdown_images(markdown, base_path="docs/report.md")
 Local images resolve relative to `base_path`. If `base_path` is a file, images
 resolve from the parent directory. Remote image checks contact only HTTP and
 HTTPS URLs, and private or loopback hosts are rejected.
+
+## Heading Slugification
+
+Use `slugify_heading` to compute the GitHub-style anchor slug for a raw
+heading title. This is useful when another tool needs to link into a
+MkForge-generated document by heading text, for example `scribpy` assembling
+several MkForge reports into one document and cross-linking between their
+sections.
+
+```python
+from mkforge import slugify_heading
+
+slugify_heading("Analyse des Risques")  # "analyse-des-risques"
+slugify_heading("`code` inline")        # "code-inline"
+```
+
+Behavior:
+
+- lowercases the heading text;
+- strips inline Markdown markers (`` ` ``, `*`, `_`, `~`) before
+  slugification;
+- collapses any run of non-alphanumeric, non-hyphen characters into a single
+  hyphen;
+- trims leading and trailing hyphens;
+- preserves Unicode letters such as accents, only case-folding them, never
+  transliterating.
+
+This matches the anchors GitHub generates for the same heading text, so a
+link such as `[Analyse des Risques](#analyse-des-risques)` stays valid.
 
 ## Assets
 

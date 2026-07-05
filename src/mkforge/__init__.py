@@ -22,6 +22,7 @@ from mkforge.errors import (
     MissingAssetError,
     ReportDepthError,
 )
+from mkforge.slugify import slugify_heading
 from mkforge.validation import (
     validate_markdown_chapters,
     validate_markdown_headings,
@@ -67,6 +68,7 @@ __all__ = [
     "Text",
     "VerificationReport",
     "VerificationSettings",
+    "slugify_heading",
     "validate_markdown_chapters",
     "validate_markdown_headings",
     "validate_markdown_images",

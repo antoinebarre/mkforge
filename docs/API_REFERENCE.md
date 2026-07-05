@@ -21,6 +21,7 @@ from mkforge import (
     Report,
     Section,
     Table,
+    slugify_heading,
     validate_markdown_chapters,
     validate_markdown_headings,
     validate_markdown_images,
@@ -95,6 +96,7 @@ Module-level helpers are documented for advanced integrations and tests.
 | `validate_markdown_chapters` | `mkforge` | validation | Check H2 chapter contract |
 | `validate_markdown_headings` | `mkforge` | validation | Check level/title heading contract |
 | `validate_markdown_images` | `mkforge` | validation/assets | Check Markdown image targets |
+| `slugify_heading` | `mkforge` | text | Convert a heading title to a GitHub-style anchor slug |
 | `InvalidChildError` | `mkforge` | errors | Unsupported report-tree child |
 | `InvalidTableError` | `mkforge` | errors | Invalid table shape |
 | `ReportDepthError` | `mkforge` | errors | Section nesting below H6 |
@@ -1039,6 +1041,70 @@ Behavior:
 - replaces remote URLs with their downloaded `assets/<filename>` path;
 - treats `remote_map=None` as an empty mapping;
 - returns a new Markdown string.
+
+---
+
+## 6.7 `mkforge.slugify` Helpers
+
+### 6.7.1 `slugify_heading`
+
+Module: `mkforge.slugify`
+
+Exported by: `mkforge`
+
+Signature:
+
+```python
+slugify_heading(text: str) -> str
+```
+
+Converts a raw Markdown heading title (without leading `#` markers) into a
+GitHub-compatible anchor slug. This is the same slug shape GitHub computes for
+heading anchors, so it can be used to build stable cross-document links, for
+example from `scribpy` when it assembles Markdown collections authored with
+MkForge.
+
+Algorithm:
+
+1. Strip inline Markdown markers: `` ` ``, `*`, `_`, `~`.
+2. Lowercase the text (Unicode letters are case-folded, never
+   transliterated).
+3. Collapse every run of characters that is neither alphanumeric nor a
+   literal hyphen into a single `-`.
+4. Trim leading and trailing hyphens.
+
+Parameters:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `text` | `str` | Raw heading text, without the leading `#` markers |
+
+Returns: `str` — lowercase, hyphen-separated anchor slug.
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| `text` is not a string | `TypeError` |
+
+Examples:
+
+```python
+from mkforge import slugify_heading
+
+slugify_heading("Hello World")          # "hello-world"
+slugify_heading("Analyse des Risques")  # "analyse-des-risques"
+slugify_heading("C'est l'été !")        # "c-est-l-été"
+slugify_heading("`code` inline")        # "code-inline"
+slugify_heading("  leading spaces  ")   # "leading-spaces"
+slugify_heading("A & B")                # "a-b"
+```
+
+Note: `mkforge.rendering.anchor_slug` (advanced, internal) powers MkForge's
+own table-of-contents generation and is not identical to `slugify_heading` on
+every input (for example, it drops apostrophes instead of turning them into a
+separator). Use `slugify_heading` for anchors shared with external tools;
+`anchor_slug` remains reserved for MkForge's internal TOC rendering.
 
 ---
 
