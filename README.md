@@ -58,9 +58,9 @@ For package validation before publishing:
 make check-dist
 ```
 
-Temporary outputs are created under `work/` and removed at the end of each
-quality or packaging execution. The directory is kept in the repository with
-`work/.gitkeep`.
+Temporary quality reports are written under `work/reports/`. Packaging checks
+build distributions under `work/dist/`. The `work/` directory is kept in the
+repository with `work/.gitkeep`.
 
 ## Example
 
@@ -137,7 +137,7 @@ MkForge is intended to be independent from Scribpy.
 
 - `mkforge` generates Markdown reports from Python data.
 - `scribpy` assembles and builds Markdown documentation projects.
-- `uvforge` initializes and runs quality gates for Python packages using `uv`.
+- `yggtools` initializes and runs quality gates for Python packages using `uv`.
 
-Scribpy and uvforge may depend on MkForge for generated reports, but MkForge
+Scribpy and yggtools may depend on MkForge for generated reports, but MkForge
 should not depend on either of them.

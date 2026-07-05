@@ -52,8 +52,8 @@ def test_validation_rejects_invalid_titles() -> None:
         Report(1)  # type: ignore[arg-type]
 
 
-def test_validation_rejects_invalid_content_data() -> None:
-    """Requirement: content elements reject invalid construction data."""
+def test_validation_rejects_invalid_text_content_data() -> None:
+    """Requirement: text content elements reject invalid construction data."""
     with pytest.raises(ValueError, match="Paragraph content"):
         Paragraph("")
     with pytest.raises(TypeError, match="Paragraph content must be a tuple"):
@@ -66,6 +66,10 @@ def test_validation_rejects_invalid_content_data() -> None:
         Text("bad", style="unknown")  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="CodeBlock code must be a string"):
         CodeBlock(1)  # type: ignore[arg-type]
+
+
+def test_validation_rejects_invalid_collection_content_data() -> None:
+    """Requirement: collection content rejects invalid construction data."""
     with pytest.raises(ValueError, match="BulletList"):
         BulletList(())
     with pytest.raises(TypeError, match="BulletList items must be a tuple"):

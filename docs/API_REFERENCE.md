@@ -61,6 +61,58 @@ from mkforge import (
 )
 ```
 
+## 2.1 Public Surface Index
+
+This table lists the supported public and advanced APIs documented in this
+reference. Names exported by `mkforge` are the preferred application API.
+Module-level helpers are documented for advanced integrations and tests.
+
+| API | Import path | Category | Primary purpose |
+|---|---|---|---|
+| `Report` | `mkforge` | generation | Root Markdown document |
+| `Chapter` | `mkforge` | generation | Top-level H2 report section |
+| `Section` | `mkforge` | generation | Nested H3-H6 section |
+| `Paragraph` | `mkforge` | content | Text block with optional inline elements |
+| `Text` | `mkforge` | content | Styled inline text |
+| `LineBreak` | `mkforge` | content | GFM hard line break |
+| `Link` | `mkforge` | content | Inline Markdown link |
+| `CodeBlock` | `mkforge` | content | Fenced code block |
+| `Table` | `mkforge` | content | GFM pipe table |
+| `BulletList` | `mkforge` | content | Unordered list |
+| `NumberedList` | `mkforge` | content | Ordered list |
+| `Image` | `mkforge` | content/assets | Markdown image reference |
+| `HorizontalRule` | `mkforge` | content | Markdown thematic break |
+| `BlockQuote` | `mkforge` | content | Markdown block quote |
+| `verify_markdown` | `mkforge` | verification | Verify raw Markdown text |
+| `verify_markdown_file` | `mkforge` | verification | Verify a Markdown file |
+| `VerificationReport` | `mkforge` | verification | Verification result object |
+| `Diagnostic` | `mkforge` | verification | One verification diagnostic |
+| `MarkdownSource` | `mkforge` | verification | Rule execution context |
+| `MarkdownLine` | `mkforge` | verification | One numbered source line |
+| `MarkdownRule` | `mkforge` | verification | Custom rule callable protocol |
+| `VerificationSettings` | `mkforge` | verification | Disabled rules and rule options |
+| `validate_markdown_yaml` | `mkforge` | validation | Check YAML frontmatter contract |
+| `validate_markdown_chapters` | `mkforge` | validation | Check H2 chapter contract |
+| `validate_markdown_headings` | `mkforge` | validation | Check level/title heading contract |
+| `validate_markdown_images` | `mkforge` | validation/assets | Check Markdown image targets |
+| `InvalidChildError` | `mkforge` | errors | Unsupported report-tree child |
+| `InvalidTableError` | `mkforge` | errors | Invalid table shape |
+| `ReportDepthError` | `mkforge` | errors | Section nesting below H6 |
+| `MissingAssetError` | `mkforge` | errors/assets | Missing local image file |
+| `DownloadAssetError` | `mkforge` | errors/assets | Remote asset download failure |
+| `render_report` | `mkforge.rendering` | advanced | Render a `Report` object |
+| `save_report` | `mkforge.rendering` | advanced | Render and write a report |
+| `render_content_element` | `mkforge.rendering` | advanced | Render one content element |
+| `anchor_slug` | `mkforge.rendering` | advanced | Compute GitHub-style anchor slug |
+| `NumberingContext` | `mkforge.rendering` | advanced | Maintain heading counters |
+| `compute_section_heading_level` | `mkforge.document` | advanced | Map section depth to heading level |
+| `collect_local_image_paths` | `mkforge.assets` | advanced/assets | Collect local image paths from a report |
+| `collect_remote_image_urls` | `mkforge.assets` | advanced/assets | Collect remote image URLs from a report |
+| `verify_assets` | `mkforge.assets` | advanced/assets | Raise for missing local assets |
+| `copy_assets_to_dir` | `mkforge.assets` | advanced/assets | Copy local images to an asset directory |
+| `download_assets_to_dir` | `mkforge.assets` | advanced/assets | Download remote images to an asset directory |
+| `rewrite_image_paths` | `mkforge.assets` | advanced/assets | Rewrite image references after bundling |
+
 ## 3. Complete Minimal Example
 
 ```python
@@ -95,7 +147,7 @@ Rendered heading hierarchy:
 
 ---
 
-## 4. Public Classes — Report Generation
+## 4. Public Classes - Report Generation
 
 ### 4.1 `Report`
 
@@ -371,7 +423,7 @@ Rendering:
   
 ```
 
-(Two trailing spaces followed by a newline — Markdown hard line break.)
+(Two trailing spaces followed by a newline - Markdown hard line break.)
 
 Intended for use inside a `Paragraph` inline tuple.
 
@@ -383,7 +435,7 @@ Module: `mkforge.content`
 
 Exported by: `mkforge`
 
-Inline element — valid only inside a `Paragraph` inline tuple.
+Inline element - valid only inside a `Paragraph` inline tuple.
 
 Signature:
 
@@ -433,6 +485,28 @@ Signature:
 ```python
 CodeBlock(code: str, language: str = "")
 ```
+
+Attributes:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `code` | `str` | Raw fenced block body; may be empty |
+| `language` | `str` | Optional info string after the opening fence |
+
+Rendering rules:
+
+| Input | Output |
+|---|---|
+| `CodeBlock("x = 1")` | Plain fenced code block |
+| `CodeBlock("x = 1", language="python")` | Python fenced code block |
+| `CodeBlock("", language="sh")` | Empty shell fenced code block |
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| Non-string `code` | `TypeError` |
+| Non-string `language` | `TypeError` |
 
 Example:
 
@@ -506,7 +580,7 @@ table = Table.from_columns(
 
 ---
 
-### 4.11 `BulletList`
+### 4.10 `BulletList`
 
 Module: `mkforge.content`
 
@@ -536,7 +610,7 @@ scope = BulletList(("Markdown output", "Pure Python API"))
 
 ---
 
-### 4.12 `NumberedList`
+### 4.11 `NumberedList`
 
 Module: `mkforge.content`
 
@@ -566,7 +640,7 @@ steps = NumberedList(("Compose report", "Render Markdown", "Save file"))
 
 ---
 
-### 4.13 `Image`
+### 4.12 `Image`
 
 Module: `mkforge.content`
 
@@ -577,6 +651,37 @@ Signature:
 ```python
 Image(path: str, alt: str = "", title: str = "")
 ```
+
+Attributes:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `path` | `str` | Local path or remote image URL; may not be empty |
+| `alt` | `str` | Alternate text; may be empty |
+| `title` | `str` | Optional title text; may be empty |
+
+Rendering rules:
+
+| Input | Output |
+|---|---|
+| `Image("chart.png")` | `![](chart.png)` |
+| `Image("chart.png", alt="Chart")` | `![Chart](chart.png)` |
+| `Image("chart.png", alt="Chart", title="Q1")` | `![Chart](chart.png "Q1")` |
+
+Validation and asset behavior:
+
+- construction does not check local filesystem existence;
+- `Report.save()` checks all local image paths before writing;
+- `Report.save(copy_assets=True)` copies local images into `assets/`;
+- remote image URLs are downloaded only when `copy_assets=True`;
+- remote download failures raise `DownloadAssetError`.
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| Empty `path` | `ValueError` |
+| Non-string `path`, `alt`, or `title` | `TypeError` |
 
 Example:
 
@@ -598,7 +703,7 @@ Rendered output:
 
 ---
 
-### 4.14 `HorizontalRule`
+### 4.13 `HorizontalRule`
 
 Module: `mkforge.content`
 
@@ -618,7 +723,7 @@ Rendered output:
 
 ---
 
-### 4.15 `BlockQuote`
+### 4.14 `BlockQuote`
 
 Module: `mkforge.content`
 
@@ -629,6 +734,19 @@ Signature:
 ```python
 BlockQuote(content: str)
 ```
+
+Attributes:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `content` | `str` | Quote body; may contain multiple lines |
+
+Rendering rules:
+
+- each line is prefixed with `> `;
+- embedded newlines are preserved as quoted lines;
+- an empty string renders as `> `;
+- non-string content raises `TypeError`.
 
 Example:
 
@@ -709,7 +827,7 @@ Failed to download asset 'https://example.com/img.png': <urlopen error timeout>
 
 ---
 
-## 6. Module-Level Functions — Report Generation
+## 6. Module-Level Functions - Report Generation
 
 ### 6.1 `mkforge.rendering.render_report`
 
@@ -781,9 +899,146 @@ Signature:
 compute_section_heading_level(depth_from_chapter: int) -> int
 ```
 
-Returns the Markdown heading level (3–6) for a section at a given nesting
+Returns the Markdown heading level (3-6) for a section at a given nesting
 depth below its parent chapter. Raises `ReportDepthError` when the level
 would exceed H6.
+
+---
+
+## 6.6 `mkforge.assets` Helpers
+
+These helpers are used internally by `save_report`, but they are documented for
+advanced integrations that need to inspect or bundle assets explicitly.
+
+### 6.6.1 `collect_local_image_paths`
+
+Signature:
+
+```python
+collect_local_image_paths(report: object) -> list[Path]
+```
+
+Walks a `Report` tree and returns resolved filesystem paths for every local
+`Image`. Remote images are excluded. Duplicates are preserved in document
+order.
+
+| Input | Result |
+|---|---|
+| non-`Report` object | `[]` |
+| report with no images | `[]` |
+| report with `Image("chart.png")` | `[Path("chart.png").resolve()]` |
+
+### 6.6.2 `collect_remote_image_urls`
+
+Signature:
+
+```python
+collect_remote_image_urls(report: object) -> list[str]
+```
+
+Walks a `Report` tree and returns remote image references in document order.
+Local images are excluded. A path is treated as remote when it contains
+`://`, starts with `//`, or starts with `www.`.
+
+### 6.6.3 `verify_assets`
+
+Signature:
+
+```python
+verify_assets(paths: list[Path]) -> None
+```
+
+Checks that every given path exists. Missing paths are collected and raised in
+one `MissingAssetError`.
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| Any path does not exist | `MissingAssetError` |
+
+### 6.6.4 `copy_assets_to_dir`
+
+Signature:
+
+```python
+copy_assets_to_dir(paths: list[Path], assets_dir: Path) -> dict[Path, str]
+```
+
+Copies local image files into `assets_dir` and returns a mapping from original
+resolved path to rewritten Markdown path.
+
+Behavior:
+
+- creates `assets_dir` when needed;
+- skips duplicate source paths;
+- preserves metadata via `shutil.copy2`;
+- resolves basename collisions by appending `_N`;
+- emits `UserWarning` for collision renames;
+- returns values such as `assets/chart.png`.
+
+Example return value:
+
+```python
+{
+    Path("/project/chart.png"): "assets/chart.png",
+    Path("/project/other/chart.png"): "assets/chart_1.png",
+}
+```
+
+### 6.6.5 `download_assets_to_dir`
+
+Signature:
+
+```python
+download_assets_to_dir(urls: list[str], assets_dir: Path) -> dict[str, str]
+```
+
+Downloads remote image URLs into `assets_dir` and returns a mapping from URL to
+rewritten Markdown path.
+
+Behavior:
+
+- creates `assets_dir` when needed;
+- skips duplicate URLs;
+- derives filenames from the URL path;
+- uses `image_<n>` when the URL has no usable filename;
+- resolves filename collisions by appending `_N`;
+- emits `UserWarning` for collision renames;
+- permits only `http`, `https`, `ftp`, and `ftps` schemes;
+- blocks hosts that resolve to private, loopback, link-local, unspecified, or
+  multicast addresses.
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| Unsupported scheme | `DownloadAssetError` |
+| URL has no host | `DownloadAssetError` |
+| Host resolves to non-routable address | `DownloadAssetError` |
+| Network download fails | `DownloadAssetError` |
+
+### 6.6.6 `rewrite_image_paths`
+
+Signature:
+
+```python
+rewrite_image_paths(
+    markdown: str,
+    local_map: dict[Path, str],
+    remote_map: dict[str, str] | None = None,
+) -> str
+```
+
+Rewrites Markdown image references after local copying or remote download.
+
+Behavior:
+
+- replaces resolved local paths with their `assets/<filename>` path;
+- also replaces local basenames for simple relative image references;
+- replaces remote URLs with their downloaded `assets/<filename>` path;
+- treats `remote_map=None` as an empty mapping;
+- returns a new Markdown string.
 
 ---
 
@@ -1107,7 +1362,13 @@ Module: `mkforge.validation`
 Exported by: `mkforge`
 
 Validation functions return booleans for project-specific document contracts.
-They do not emit Markdown/GFM compliance diagnostics.
+They do not emit Markdown/GFM compliance diagnostics. Use verification when
+you need line-numbered Markdown diagnostics; use validation when you need a
+yes/no answer for expected content.
+
+### 8.9.1 `validate_markdown_yaml`
+
+Signature:
 
 ```python
 validate_markdown_yaml(
@@ -1118,10 +1379,82 @@ validate_markdown_yaml(
 ) -> bool
 ```
 
-Checks YAML frontmatter.  In non-strict mode, the document may contain extra
-frontmatter keys.  In strict mode, the keys must exactly match.  Expected
-values are checked by type and value; expected Python types such as `bool`
-check only the parsed value type.
+Parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `markdown` | `str` | required | Markdown source text |
+| `expected` | `Mapping[str, object]` | required | Expected frontmatter keys and values |
+| `strict` | `bool` | `False` | Whether the key set must match exactly |
+
+Return value:
+
+| Result | Meaning |
+|---|---|
+| `True` | Frontmatter exists and matches the expected contract |
+| `False` | Frontmatter is missing, malformed, or does not match |
+
+Contract rules:
+
+- frontmatter must appear at the start of the document;
+- frontmatter must be delimited by `---` lines;
+- non-strict mode treats `expected` as a minimum mapping;
+- strict mode requires exactly the expected keys;
+- concrete expected values compare by value;
+- expected Python types such as `bool`, `int`, or `str` compare by type only;
+- list expectations compare list length and item contracts.
+
+Supported parsed values:
+
+| YAML source | Parsed value |
+|---|---|
+| `draft: false` | `False` |
+| `count: 3` | `3` |
+| `ratio: 1.5` | `1.5` |
+| `reviewed: null` | `None` |
+| `tags:` followed by `  - item` lines | `list[object]` |
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| `markdown` is not a string | `TypeError` |
+| `expected` is not a mapping | `TypeError` |
+
+Example:
+
+```python
+from mkforge import validate_markdown_yaml
+
+markdown = """---
+title: Release
+draft: false
+version: 3
+tags:
+  - release
+  - docs
+---
+
+# Release
+"""
+
+validate_markdown_yaml(markdown, {"draft": False})
+validate_markdown_yaml(markdown, {"version": int})
+validate_markdown_yaml(
+    markdown,
+    {
+        "title": "Release",
+        "draft": False,
+        "version": 3,
+        "tags": ["release", "docs"],
+    },
+    strict=True,
+)
+```
+
+### 8.9.2 `validate_markdown_chapters`
+
+Signature:
 
 ```python
 validate_markdown_chapters(
@@ -1132,9 +1465,61 @@ validate_markdown_chapters(
 ) -> bool
 ```
 
-Checks H2 chapter titles in order.  In non-strict mode, expected chapters must
-appear as an ordered subsequence.  In strict mode, the H2 chapter sequence must
-match exactly.
+Parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `markdown` | `str` | required | Markdown source text |
+| `expected` | `Iterable[str]` | required | Expected H2 chapter titles |
+| `strict` | `bool` | `False` | Whether the full H2 sequence must match |
+
+Return value:
+
+| Result | Meaning |
+|---|---|
+| `True` | Expected chapters match according to the selected mode |
+| `False` | H2 chapters are missing, out of order, or not exact in strict mode |
+
+Contract rules:
+
+- only H2 headings (`## Title`) are considered chapters;
+- H1, H3, H4, H5, and H6 headings are ignored;
+- non-strict mode checks ordered subsequence membership;
+- strict mode checks complete H2 equality;
+- title comparison is exact after Markdown heading marker parsing.
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| `markdown` is not a string | `TypeError` |
+| `expected` is not a valid string sequence | `TypeError` |
+
+Example:
+
+```python
+from mkforge import validate_markdown_chapters
+
+markdown = """# Report
+
+## Context
+
+## Architecture
+
+## Tests
+"""
+
+validate_markdown_chapters(markdown, ("Context", "Tests"))
+validate_markdown_chapters(
+    markdown,
+    ("Context", "Architecture", "Tests"),
+    strict=True,
+)
+```
+
+### 8.9.3 `validate_markdown_headings`
+
+Signature:
 
 ```python
 validate_markdown_headings(
@@ -1145,10 +1530,63 @@ validate_markdown_headings(
 ) -> bool
 ```
 
-Checks heading levels and titles in order. Expected headings are `(level,
-title)` pairs such as `(2, "Context")` for `## Context` or `(3, "Scope")` for
-`### Scope`. In non-strict mode, expected headings must appear as an ordered
-subsequence. In strict mode, the complete heading sequence must match exactly.
+Parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `markdown` | `str` | required | Markdown source text |
+| `expected` | `Iterable[tuple[int, str]]` | required | Expected `(level, title)` contracts |
+| `strict` | `bool` | `False` | Whether the full heading sequence must match |
+
+Return value:
+
+| Result | Meaning |
+|---|---|
+| `True` | Heading level/title pairs match according to selected mode |
+| `False` | A heading is missing, at the wrong level, or out of order |
+
+Contract rules:
+
+- headings are represented as `(level, title)`;
+- `level` must be an integer from 1 to 6;
+- `title` must be a non-empty string;
+- non-strict mode checks ordered subsequence membership;
+- strict mode checks the complete heading sequence;
+- use this function when heading level is part of the contract.
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| `markdown` is not a string | `TypeError` |
+| `expected` is not an iterable of pairs | `TypeError` |
+| heading level is not an integer | `TypeError` |
+| heading level is outside 1-6 | `ValueError` |
+| heading title is blank | `ValueError` |
+
+Example:
+
+```python
+from mkforge import validate_markdown_headings
+
+markdown = """# Report
+
+## Context
+
+### Scope
+
+## Tests
+"""
+
+validate_markdown_headings(
+    markdown,
+    ((2, "Context"), (3, "Scope"), (2, "Tests")),
+)
+```
+
+### 8.9.4 `validate_markdown_images`
+
+Signature:
 
 ```python
 validate_markdown_images(
@@ -1159,12 +1597,51 @@ validate_markdown_images(
 ) -> bool
 ```
 
-Checks every Markdown image target outside fenced code blocks.  Local paths are
-resolved relative to `base_path` when provided, or the current directory when
-omitted.  Remote HTTP(S) images are checked with a HEAD request and fallback
-GET request.
+Parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `markdown` | `str` | required | Markdown source text |
+| `base_path` | `str | Path | None` | `None` | Directory or Markdown file used for local path resolution |
+| `timeout` | `float` | `5.0` | Timeout in seconds for remote HTTP checks |
+
+Return value:
+
+| Result | Meaning |
+|---|---|
+| `True` | Every image target outside fenced code blocks exists or is reachable |
+| `False` | At least one image target is empty, missing, blocked, or unreachable |
+
+Contract rules:
+
+- fenced code blocks are ignored;
+- local paths resolve from `base_path`;
+- if `base_path` points to a file, local paths resolve from its parent;
+- if `base_path` is omitted, local paths resolve from the current directory;
+- remote image checks support HTTP and HTTPS;
+- remote checks try `HEAD`, then `GET` as a fallback;
+- loopback and private hosts are rejected before network access.
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| `markdown` is not a string | `TypeError` |
+| `base_path` is an empty string | `ValueError` |
+| `timeout` is not a number | `TypeError` |
+| `timeout` is less than or equal to zero | `ValueError` |
 
 Example:
+
+```python
+from mkforge import validate_markdown_images
+
+markdown = "# Report\n\n![Chart](assets/chart.png)\n"
+
+validate_markdown_images(markdown, base_path="docs/report.md")
+```
+
+### 8.9.5 Combined validation gate
 
 ```python
 from mkforge import (
@@ -1174,23 +1651,9 @@ from mkforge import (
     validate_markdown_yaml,
 )
 
-markdown = """---
-title: Release
-draft: false
----
-
-# Release
-
-## Context
-
-### Scope
-
-![Chart](assets/chart.png)
-"""
-
 ok = (
     validate_markdown_yaml(markdown, {"draft": False})
-    and validate_markdown_chapters(markdown, ("Context",))
+    and validate_markdown_chapters(markdown, ("Context", "Tests"))
     and validate_markdown_headings(markdown, ((2, "Context"), (3, "Scope")))
     and validate_markdown_images(markdown, base_path="doc/release.md")
 )
@@ -1204,8 +1667,8 @@ ok = (
 
 | Prefix | Scope |
 |---|---|
-| `MD001`–`MD047` | markdownlint-compatible Markdown conformance checks |
-| `GFM001`–`GFM003` | GitHub Flavored Markdown verification |
+| `MD001`-`MD047` | markdownlint-compatible Markdown conformance checks |
+| `GFM001`-`GFM003` | GitHub Flavored Markdown verification |
 | `MKF001` | MkForge resource verification |
 
 ### 9.2 Markdown Rules (MD prefix)
@@ -1305,9 +1768,9 @@ Settings are discovered automatically when `source_path` is provided. MkForge
 searches from the source file directory upward for the first directory
 containing any of:
 
-1. `pyproject.toml` — read from `[tool.mkforge.verification]`
-2. `.mkforge.toml` — read from `[verification]` or root table
-3. `.mkforge` — read from `[verification]` or root table
+1. `pyproject.toml` - read from `[tool.mkforge.verification]`
+2. `.mkforge.toml` - read from `[verification]` or root table
+3. `.mkforge` - read from `[verification]` or root table
 
 Example `pyproject.toml`:
 
@@ -1386,7 +1849,227 @@ report = verify_markdown(
 
 ---
 
-## 12. UML: Public Object Model
+## 12. Feature Reference
+
+This section documents cross-cutting features whose behavior spans multiple
+classes or functions.
+
+### 12.1 Fluent Report Construction
+
+Feature owner: `Report.add`, `Chapter.add`, `Section.add`
+
+Behavior:
+
+- `Report.add(*chapters)` appends one or more chapters and returns the same
+  `Report` instance;
+- `Chapter.add(*items)` appends sections or content elements and returns the
+  same `Chapter` instance;
+- `Section.add(*items)` appends nested sections or content elements and
+  returns the same `Section` instance;
+- invalid child types fail immediately with `InvalidChildError`.
+
+Example:
+
+```python
+report = Report("Quality").add(
+    Chapter("Summary").add(
+        Paragraph("All checks passed."),
+    ),
+)
+```
+
+### 12.2 Heading Model
+
+Feature owners: `Report`, `Chapter`, `Section`,
+`compute_section_heading_level`
+
+Rendering contract:
+
+| Object | Heading level |
+|---|---|
+| `Report` | H1 |
+| `Chapter` | H2 |
+| `Section` directly under chapter | H3 |
+| nested section depth 2 | H4 |
+| nested section depth 3 | H5 |
+| nested section depth 4 | H6 |
+
+Errors:
+
+- section depth below H6 raises `ReportDepthError`;
+- invalid depth passed to `compute_section_heading_level` raises `TypeError`
+  or `ValueError`.
+
+### 12.3 Frontmatter Rendering
+
+Feature owners: `Report.metadata`, `render_report`
+
+Behavior:
+
+- frontmatter is rendered only when `Report.metadata is not None`;
+- metadata keys must be non-empty strings;
+- dictionary insertion order is preserved;
+- output is enclosed by `---` delimiters;
+- list and tuple values render as YAML block sequences.
+
+Example:
+
+```python
+Report(
+    "Audit",
+    metadata={"title": "Audit", "draft": False, "tags": ["ci", "release"]},
+)
+```
+
+Rendered:
+
+```markdown
+---
+title: Audit
+draft: false
+tags:
+  - ci
+  - release
+---
+```
+
+### 12.4 Table Of Contents
+
+Feature owners: `Report.toc`, `anchor_slug`
+
+Behavior:
+
+- TOC renders after H1 and before chapters;
+- chapters and sections are included;
+- empty reports do not render an empty TOC block;
+- anchors use `anchor_slug(title)`;
+- anchors are based on raw titles, not numbered titles.
+
+Example:
+
+```python
+Report("Doc", toc=True).add(
+    Chapter("Intro").add(
+        Section("Scope"),
+    ),
+)
+```
+
+TOC:
+
+```markdown
+- [Intro](#intro)
+  - [Scope](#scope)
+```
+
+### 12.5 Automatic Heading Numbering
+
+Feature owners: `Report.auto_numbering`, `NumberingContext`
+
+Behavior:
+
+- chapters receive `1.`, `2.`, `3.` prefixes;
+- sections receive nested prefixes such as `1.1.` and `1.2.`;
+- numbering affects rendered headings;
+- numbering does not mutate stored `title` attributes;
+- numbering and TOC can be enabled together.
+
+Example output:
+
+```markdown
+## 1. Summary
+
+### 1.1. Status
+
+## 2. Evidence
+```
+
+### 12.6 Content Rendering
+
+Feature owners: content element `.render()` methods,
+`render_content_element`
+
+Behavior:
+
+- each content element owns its Markdown rendering;
+- `render_content_element` accepts objects satisfying the `Renderable`
+  protocol;
+- unknown content raises `TypeError`;
+- report traversal joins blocks with one blank line between blocks.
+
+### 12.7 File Saving
+
+Feature owners: `Report.save`, `save_report`, `mkforge.assets`
+
+Behavior:
+
+1. Validate the object is a `Report`.
+2. Validate the destination path.
+3. Collect local image paths.
+4. Raise `MissingAssetError` if any local image is absent.
+5. Render Markdown.
+6. Optionally copy or download images.
+7. Optionally rewrite image links.
+8. Create parent directories.
+9. Write UTF-8 Markdown.
+
+### 12.8 Asset Bundling
+
+Feature owners: `save_report(copy_assets=True)`,
+`copy_assets_to_dir`, `download_assets_to_dir`, `rewrite_image_paths`
+
+Behavior:
+
+- local images are copied to `assets/` next to the Markdown file;
+- remote images are downloaded into the same directory;
+- duplicate sources are copied or downloaded once;
+- filename collisions are renamed with `_N`;
+- collisions emit `UserWarning`;
+- image references are rewritten to `assets/<filename>`;
+- remote downloads validate scheme and host before network access.
+
+### 12.9 Markdown Verification
+
+Feature owners: `verify_markdown`, `verify_markdown_file`,
+`VerificationReport`
+
+Behavior:
+
+- built-in Markdown, GFM, and MkForge resource rules run in one pass;
+- custom rules run after built-in rules;
+- disabled rules are filtered after diagnostics are produced;
+- diagnostics are sorted by `(line, column, rule_id)`;
+- `VerificationReport.passed` is `True` when no diagnostics remain.
+
+### 12.10 Settings Discovery
+
+Feature owners: `VerificationSettings`, `verify_markdown_file`,
+`verify_markdown(source_path=...)`
+
+Behavior:
+
+- explicit `settings` always wins;
+- when settings are omitted and `source_path` is available, MkForge discovers
+  TOML settings from nearby files;
+- disabled rule IDs are normalized for matching;
+- rule option mappings are merged over defaults.
+
+### 12.11 Markdown Validation
+
+Feature owners: validation functions in `mkforge.validation`
+
+Behavior:
+
+- validation functions return booleans for content contracts;
+- validation is intentionally separate from verification diagnostics;
+- YAML validation checks frontmatter shape and values;
+- chapter validation checks H2 order;
+- heading validation checks heading level and title;
+- image validation checks local and remote image targets.
+
+---
+
+## 13. UML: Public Object Model
 
 ```plantuml
 @startuml public-object-model
@@ -1452,7 +2135,7 @@ Paragraph "1" --> "*" Link
 @enduml
 ```
 
-## 13. UML: Verification Type Model
+## 14. UML: Verification Type Model
 
 ```plantuml
 @startuml verification-types
@@ -1506,7 +2189,7 @@ MarkdownRule ..> Diagnostic : returns
 @enduml
 ```
 
-## 14. UML: Module Architecture
+## 15. UML: Module Architecture
 
 ```plantuml
 @startuml module-architecture
@@ -1567,7 +2250,7 @@ package "Validation" {
 @enduml
 ```
 
-## 15. UML: Render Sequence
+## 16. UML: Render Sequence
 
 ```plantuml
 @startuml render-sequence
@@ -1605,7 +2288,7 @@ Rendering -> Rendering: write UTF-8 file
 @enduml
 ```
 
-## 16. UML: Verification Sequence
+## 17. UML: Verification Sequence
 
 ```plantuml
 @startuml verification-sequence
@@ -1634,7 +2317,7 @@ VerificationReport --> User: report
 @enduml
 ```
 
-## 17. UML: Validation Flow
+## 18. UML: Validation Flow
 
 ```plantuml
 @startuml validation-flow
@@ -1657,7 +2340,7 @@ stop
 @enduml
 ```
 
-### 17.1 UML: Markdown Validation Sequence
+### 18.1 UML: Markdown Validation Sequence
 
 ```plantuml
 @startuml markdown-validation-sequence
@@ -1691,7 +2374,7 @@ Images --> User: bool
 @enduml
 ```
 
-## 18. Complete Demos
+## 19. Complete Demos
 
 ### Report generation
 
@@ -1699,7 +2382,7 @@ Images --> User: bool
 uv run python demo_report.py
 ```
 
-Exercises: dictionary metadata, TOC, automatic numbering, H1–H6 headings,
+Exercises: dictionary metadata, TOC, automatic numbering, H1-H6 headings,
 paragraphs and inline styles, tables, bullet and numbered lists, images,
 block quotes, horizontal rules, code blocks, file saving.
 

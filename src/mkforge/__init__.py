@@ -74,3 +74,5 @@ __all__ = [
     "verify_markdown",
     "verify_markdown_file",
 ]
+
+__version__ = "0.1.0"

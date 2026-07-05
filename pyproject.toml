@@ -69,18 +69,6 @@ statistics = true
 [tool.bandit]
 exclude_dirs = ["tests", "work", ".venv"]
 
-[tool.mkforge.code_metrics]
-paths = ["src/mkforge", "tests"]
-exclude = []
-max_cyclomatic_complexity = 10
-max_module_logical_lines = 900
-
-[tool.uvforge]
-project_name = "mkforge"
-source_root = "src/mkforge"
-source_base = "src"
-config_namespace = "mkforge"
-
 [dependency-groups]
 dev = [
     "bandit>=1.8",
@@ -95,4 +83,11 @@ dev = [
     "pytest-cov>=6",
     "ruff>=0.4",
     "twine>=6",
+    "yggtools>=1.2.0",
 ]
+
+[tool.yggtools.code_metrics]
+paths = ["src/mkforge", "tests"]
+exclude = []
+max_cyclomatic_complexity = 10
+max_module_logical_lines = 900
