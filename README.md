@@ -131,6 +131,21 @@ uv run python demo_verif.py
 uv run python demo_validation.py
 ```
 
+## Heading Slugification
+
+```python
+from mkforge import slugify_heading
+
+slugify_heading("Analyse des Risques")  # "analyse-des-risques"
+slugify_heading("`code` inline")        # "code-inline"
+```
+
+`slugify_heading` converts a raw heading title into a GitHub-style anchor
+slug: lowercase, inline Markdown markers removed, non-alphanumeric runs
+collapsed to a single hyphen, leading/trailing hyphens trimmed. Unicode
+letters are preserved (case-folded, not transliterated), which keeps slugs
+consistent with the anchors GitHub generates for the same heading.
+
 ## Relationship With Scribpy
 
 MkForge is intended to be independent from Scribpy.
