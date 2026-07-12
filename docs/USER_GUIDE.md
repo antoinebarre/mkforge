@@ -29,6 +29,7 @@ For exhaustive class, function, helper, rule, and feature contracts, see
 - [Verification](#verification)
 - [Validation](#validation)
 - [Heading Slugification](#heading-slugification)
+- [Heading Numbering](#heading-numbering)
 - [Assets](#assets)
 - [Errors](#errors)
 - [Patterns And Recommendations](#patterns-and-recommendations)
@@ -89,6 +90,16 @@ For heading anchor slugs:
 
 ```python
 from mkforge import slugify_heading
+```
+
+For cleaning and rebuilding Markdown heading numbering:
+
+```python
+from mkforge import (
+    renumber_markdown_headings,
+    strip_heading_numbering_text,
+    strip_markdown_heading_numbering,
+)
 ```
 
 ## How To Think About MkForge
@@ -1008,6 +1019,78 @@ Behavior:
 
 This matches the anchors GitHub generates for the same heading text, so a
 link such as `[Analyse des Risques](#analyse-des-risques)` stays valid.
+
+## Heading Numbering
+
+Use the heading numbering helpers when a documentation pipeline assembles
+Markdown fragments and must clean or rebuild heading numbers before publishing.
+
+````python
+from mkforge import (
+    renumber_markdown_headings,
+    strip_markdown_heading_numbering,
+)
+
+markdown = """# 9. Document
+## 4. Titre 1
+### 8. Tritre niveau 2
+
+```markdown
+## 99. This must not change
+```
+"""
+
+strip_markdown_heading_numbering(markdown)
+renumber_markdown_headings(markdown, start_level=2)
+````
+
+With `start_level=2`, H1 headings are cleaned but not numbered, H2 headings
+become numeric roots, and H3 headings become their children:
+
+````markdown
+# Document
+## 1. Titre 1
+### 1.1. Tritre niveau 2
+
+```markdown
+## 99. This must not change
+```
+````
+
+The document-level helpers:
+
+- modify only ATX headings (`#` through `######`);
+- ignore fenced code blocks;
+- preserve non-heading lines;
+- preserve heading levels;
+- strip old numbering before adding new numbering.
+
+Use `first_number` when the fragment belongs later in a larger document:
+
+```python
+renumber_markdown_headings(markdown, first_number=4, start_level=2)
+```
+
+That starts numbering at the configured root level:
+
+```markdown
+## 4. Titre 1
+### 4.1. Tritre niveau 2
+```
+
+Use `separator` to control the text between the generated number and the
+title:
+
+```python
+renumber_markdown_headings(markdown, separator=" - ")
+```
+
+Examples:
+
+- `separator=". "` renders `# 1. Title`;
+- `separator=" "` renders `# 1 Title`;
+- `separator=" - "` renders `# 1 - Title`;
+- `separator=""` renders `# 1Title`.
 
 ## Assets
 

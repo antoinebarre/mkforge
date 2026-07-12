@@ -21,7 +21,10 @@ from mkforge import (
     Report,
     Section,
     Table,
+    renumber_markdown_headings,
     slugify_heading,
+    strip_heading_numbering_text,
+    strip_markdown_heading_numbering,
     validate_markdown_chapters,
     validate_markdown_headings,
     validate_markdown_images,
@@ -97,6 +100,9 @@ Module-level helpers are documented for advanced integrations and tests.
 | `validate_markdown_headings` | `mkforge` | validation | Check level/title heading contract |
 | `validate_markdown_images` | `mkforge` | validation/assets | Check Markdown image targets |
 | `slugify_heading` | `mkforge` | text | Convert a heading title to a GitHub-style anchor slug |
+| `strip_heading_numbering_text` | `mkforge` | text | Remove a numeric prefix from heading text |
+| `strip_markdown_heading_numbering` | `mkforge` | text | Remove numeric prefixes from ATX headings |
+| `renumber_markdown_headings` | `mkforge` | text | Rebuild ATX heading numbering by hierarchy |
 | `InvalidChildError` | `mkforge` | errors | Unsupported report-tree child |
 | `InvalidTableError` | `mkforge` | errors | Invalid table shape |
 | `ReportDepthError` | `mkforge` | errors | Section nesting below H6 |
@@ -1105,6 +1111,176 @@ own table-of-contents generation and is not identical to `slugify_heading` on
 every input (for example, it drops apostrophes instead of turning them into a
 separator). Use `slugify_heading` for anchors shared with external tools;
 `anchor_slug` remains reserved for MkForge's internal TOC rendering.
+
+---
+
+## 6.8 `mkforge.heading_numbering` Helpers
+
+These helpers normalize numeric prefixes on Markdown headings. They are pure,
+deterministic, perform no I/O, and are useful for doc-as-code assemblers that
+merge Markdown fragments before publishing.
+
+All document-level helpers:
+
+- modify only ATX headings (`#` through `######`);
+- ignore fenced code blocks;
+- preserve non-heading lines;
+- preserve heading levels;
+- strip old numeric prefixes before adding new ones.
+
+### 6.8.1 `strip_heading_numbering_text`
+
+Module: `mkforge.heading_numbering`
+
+Exported by: `mkforge`
+
+Signature:
+
+```python
+strip_heading_numbering_text(text: str) -> str
+```
+
+Removes one leading numeric heading prefix from a heading title.
+
+Examples:
+
+```python
+from mkforge import strip_heading_numbering_text
+
+strip_heading_numbering_text("1. Introduction")     # "Introduction"
+strip_heading_numbering_text("1.2 Architecture")    # "Architecture"
+strip_heading_numbering_text("1.2.3 - Design")      # "Design"
+strip_heading_numbering_text("2026 Roadmap")        # "2026 Roadmap"
+strip_heading_numbering_text("Version 2.0")         # "Version 2.0"
+```
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| `text` is not a string | `TypeError` |
+
+### 6.8.2 `strip_markdown_heading_numbering`
+
+Module: `mkforge.heading_numbering`
+
+Exported by: `mkforge`
+
+Signature:
+
+```python
+strip_markdown_heading_numbering(markdown: str) -> str
+```
+
+Removes numeric prefixes from ATX headings in a complete Markdown document.
+
+Example:
+
+````python
+from mkforge import strip_markdown_heading_numbering
+
+markdown = """# 1. Introduction
+
+## 1.3 Architecture
+
+```python
+# 1. This must not change
+```
+"""
+
+strip_markdown_heading_numbering(markdown)
+````
+
+Result:
+
+````markdown
+# Introduction
+
+## Architecture
+
+```python
+# 1. This must not change
+```
+````
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| `markdown` is not a string | `TypeError` |
+
+### 6.8.3 `renumber_markdown_headings`
+
+Module: `mkforge.heading_numbering`
+
+Exported by: `mkforge`
+
+Signature:
+
+```python
+renumber_markdown_headings(
+    markdown: str,
+    *,
+    separator: str = ". ",
+    first_number: int = 1,
+    start_level: int = 1,
+) -> str
+```
+
+Removes old numeric prefixes from ATX headings, then generates coherent
+hierarchical numbering.
+
+Parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `markdown` | `str` | required | Markdown source text |
+| `separator` | `str` | `". "` | Text inserted between the number and title |
+| `first_number` | `int` | `1` | First number generated at the configured root level |
+| `start_level` | `int` | `1` | First heading level that receives generated numbering |
+
+Examples:
+
+```python
+from mkforge import renumber_markdown_headings
+
+renumber_markdown_headings("# 9. Intro\n## 4. Detail\n")
+# "# 1. Intro\n## 1.1. Detail\n"
+
+renumber_markdown_headings("# Intro\n## Detail\n", first_number=4)
+# "# 4. Intro\n## 4.1. Detail\n"
+
+renumber_markdown_headings("# Document\n## Titre\n### Détail\n", start_level=2)
+# "# Document\n## 1. Titre\n### 1.1. Détail\n"
+
+renumber_markdown_headings("## Titre\n### Détail\n", first_number=4, start_level=2)
+# "## 4. Titre\n### 4.1. Détail\n"
+```
+
+The `separator` controls only the text between the generated number and the
+title:
+
+| `separator` | Heading output |
+|---|---|
+| `". "` | `# 1. Title` |
+| `" "` | `# 1 Title` |
+| `" - "` | `# 1 - Title` |
+| `""` | `# 1Title` |
+
+When `start_level=2`, H1 headings are cleaned but not numbered. H2 headings
+become numeric roots (`1`, `2`, ...), and H3 headings become children
+(`1.1`, `1.2`, ...).
+
+Raises:
+
+| Condition | Exception |
+|---|---|
+| `markdown` is not a string | `TypeError` |
+| `separator` is not a string | `TypeError` |
+| `first_number` is not an integer | `TypeError` |
+| `start_level` is not an integer | `TypeError` |
+| `first_number` is less than 1 | `ValueError` |
+| `start_level` is outside 1-6 | `ValueError` |
 
 ---
 

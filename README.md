@@ -146,6 +146,27 @@ collapsed to a single hyphen, leading/trailing hyphens trimmed. Unicode
 letters are preserved (case-folded, not transliterated), which keeps slugs
 consistent with the anchors GitHub generates for the same heading.
 
+## Heading Numbering
+
+```python
+from mkforge import renumber_markdown_headings, strip_markdown_heading_numbering
+
+markdown = "# 9. Document\n## 4. Titre 1\n### 8. Tritre niveau 2\n"
+
+strip_markdown_heading_numbering(markdown)
+# "# Document\n## Titre 1\n### Tritre niveau 2\n"
+
+renumber_markdown_headings(markdown, start_level=2)
+# "# Document\n## 1. Titre 1\n### 1.1. Tritre niveau 2\n"
+```
+
+`strip_markdown_heading_numbering` and `renumber_markdown_headings` are pure
+Markdown helpers for doc-as-code pipelines. They modify only ATX headings
+outside fenced code blocks, preserve heading levels, and can start numbering
+at a chosen level with `start_level`. Use `first_number` to start a fragment
+at a later number, and `separator` to control the text between number and
+title.
+
 ## Relationship With Scribpy
 
 MkForge is intended to be independent from Scribpy.

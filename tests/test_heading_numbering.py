@@ -13,8 +13,10 @@ from mkforge import (
 
 _INVALID_TEXT: Any = 1
 _INVALID_FIRST_NUMBER: Any = "1"
+_INVALID_START_LEVEL: Any = "2"
 _INVALID_BOOLEAN: Any = True
 _INVALID_ZERO: Any = 0
+_INVALID_HEADING_LEVEL: Any = 7
 
 
 @pytest.mark.parametrize(
@@ -153,6 +155,32 @@ def test_renumber_markdown_headings_uses_custom_missing_parent_number() -> (
         raise AssertionError(actual)
 
 
+def test_renumber_markdown_headings_uses_custom_start_level() -> None:
+    """Requirement: renumbering starts at the requested heading level."""
+    markdown = (
+        "# 9. Document\n## 4. Titre 1\n### 8. Tritre niveau 2\n## Next\n"
+    )
+    expected = (
+        "# Document\n## 1. Titre 1\n### 1.1. Tritre niveau 2\n## 2. Next\n"
+    )
+    actual = renumber_markdown_headings(markdown, start_level=2)
+    if actual != expected:
+        raise AssertionError(actual)
+
+
+def test_renumber_markdown_headings_combines_start_and_first_number() -> None:
+    """Requirement: first_number applies at the configured start level."""
+    markdown = "# Document\n## Titre 1\n### Titre niveau 2\n"
+    expected = "# Document\n## 4. Titre 1\n### 4.1. Titre niveau 2\n"
+    actual = renumber_markdown_headings(
+        markdown,
+        first_number=4,
+        start_level=2,
+    )
+    if actual != expected:
+        raise AssertionError(actual)
+
+
 def test_renumber_markdown_headings_preserves_document_without_headings() -> (
     None
 ):
@@ -204,6 +232,11 @@ def test_renumber_markdown_headings_updates_h1_h2_h3_levels() -> None:
             first_number=_INVALID_FIRST_NUMBER,
         ),
         lambda: renumber_markdown_headings("", first_number=_INVALID_BOOLEAN),
+        lambda: renumber_markdown_headings(
+            "",
+            start_level=_INVALID_START_LEVEL,
+        ),
+        lambda: renumber_markdown_headings("", start_level=_INVALID_BOOLEAN),
     ],
 )
 def test_heading_numbering_helpers_reject_invalid_public_inputs(
@@ -220,3 +253,11 @@ def test_renumber_markdown_headings_rejects_invalid_first_number_value() -> (
     """Requirement: renumbering rejects first_number values below one."""
     with pytest.raises(ValueError, match="first_number"):
         renumber_markdown_headings("", first_number=_INVALID_ZERO)
+
+
+def test_renumber_markdown_headings_rejects_invalid_start_level_value() -> (
+    None
+):
+    """Requirement: renumbering rejects start_level outside heading levels."""
+    with pytest.raises(ValueError, match="start_level"):
+        renumber_markdown_headings("", start_level=_INVALID_HEADING_LEVEL)

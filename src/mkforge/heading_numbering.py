@@ -24,6 +24,10 @@ _MARKDOWN_TYPE_ERROR = "markdown must be a string"
 _SEPARATOR_TYPE_ERROR = "separator must be a string"
 _FIRST_NUMBER_TYPE_ERROR = "first_number must be an integer"
 _FIRST_NUMBER_VALUE_ERROR = "first_number must be greater than zero"
+_START_LEVEL_TYPE_ERROR = "start_level must be an integer"
+_START_LEVEL_VALUE_ERROR = "start_level must be between 1 and 6"
+_MIN_HEADING_LEVEL = 1
+_MAX_HEADING_LEVEL = 6
 
 
 def strip_heading_numbering_text(text: str) -> str:
@@ -68,6 +72,7 @@ def renumber_markdown_headings(
     *,
     separator: str = ". ",
     first_number: int = 1,
+    start_level: int = 1,
 ) -> str:
     """Rewrite ATX headings with hierarchical numeric prefixes.
 
@@ -75,6 +80,7 @@ def renumber_markdown_headings(
         markdown: Markdown source text.
         separator: Text inserted between each generated number and title.
         first_number: First top-level heading number to generate.
+        start_level: First heading level that receives a generated number.
 
     Returns:
         Markdown source with coherent ATX heading numbering.
@@ -82,16 +88,13 @@ def renumber_markdown_headings(
     Raises:
         TypeError: If markdown or separator is not a string.
         TypeError: If first_number is not an integer.
+        TypeError: If start_level is not an integer.
         ValueError: If first_number is less than one.
+        ValueError: If start_level is outside Markdown heading levels.
     """
     if not isinstance(markdown, str):
         raise TypeError(_MARKDOWN_TYPE_ERROR)
-    if not isinstance(separator, str):
-        raise TypeError(_SEPARATOR_TYPE_ERROR)
-    if isinstance(first_number, bool) or not isinstance(first_number, int):
-        raise TypeError(_FIRST_NUMBER_TYPE_ERROR)
-    if first_number < 1:
-        raise ValueError(_FIRST_NUMBER_VALUE_ERROR)
+    _validate_renumber_options(separator, first_number, start_level)
 
     counters = [0, 0, 0, 0, 0, 0]
 
@@ -107,11 +110,48 @@ def renumber_markdown_headings(
         heading = _parse_atx_heading_line(line)
         if heading is None:
             return line
-        number = _next_heading_number(counters, heading.level, first_number)
         title = strip_heading_numbering_text(heading.title)
+        if heading.level < start_level:
+            return _format_atx_heading_line(heading, title)
+        number = _next_heading_number(
+            counters,
+            heading.level - start_level + 1,
+            first_number,
+        )
         return _format_atx_heading_line(heading, f"{number}{separator}{title}")
 
     return _rewrite_markdown_headings(markdown, renumber)
+
+
+def _validate_renumber_options(
+    separator: str,
+    first_number: int,
+    start_level: int,
+) -> None:
+    """Validate Markdown heading renumbering options.
+
+    Args:
+        separator: Text inserted between each generated number and title.
+        first_number: First top-level heading number to generate.
+        start_level: First heading level that receives a generated number.
+
+    Raises:
+        TypeError: If separator is not a string.
+        TypeError: If first_number is not an integer.
+        TypeError: If start_level is not an integer.
+        ValueError: If first_number is less than one.
+        ValueError: If start_level is outside Markdown heading levels.
+    """
+    if not isinstance(separator, str):
+        raise TypeError(_SEPARATOR_TYPE_ERROR)
+    if isinstance(first_number, bool) or not isinstance(first_number, int):
+        raise TypeError(_FIRST_NUMBER_TYPE_ERROR)
+    if isinstance(start_level, bool) or not isinstance(start_level, int):
+        raise TypeError(_START_LEVEL_TYPE_ERROR)
+    if first_number < 1:
+        raise ValueError(_FIRST_NUMBER_VALUE_ERROR)
+    if not _MIN_HEADING_LEVEL <= start_level <= _MAX_HEADING_LEVEL:
+        raise ValueError(_START_LEVEL_VALUE_ERROR)
 
 
 def _rewrite_markdown_headings(
