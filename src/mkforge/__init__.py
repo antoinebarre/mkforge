@@ -27,6 +27,7 @@ from mkforge.heading_numbering import (
     strip_heading_numbering_text,
     strip_markdown_heading_numbering,
 )
+from mkforge.headings import Heading, extract_headings
 from mkforge.slugify import slugify_heading
 from mkforge.validation import (
     validate_markdown_chapters,
@@ -54,6 +55,7 @@ __all__ = [
     "CodeBlock",
     "Diagnostic",
     "DownloadAssetError",
+    "Heading",
     "HorizontalRule",
     "Image",
     "InvalidChildError",
@@ -73,6 +75,7 @@ __all__ = [
     "Text",
     "VerificationReport",
     "VerificationSettings",
+    "extract_headings",
     "renumber_markdown_headings",
     "slugify_heading",
     "strip_heading_numbering_text",
@@ -85,4 +88,4 @@ __all__ = [
     "verify_markdown_file",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
