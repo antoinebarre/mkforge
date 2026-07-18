@@ -546,5 +546,24 @@ Acceptance criteria:
 - `validate_markdown_images` checks HTTP(S) image URLs and returns `False` for
   unreachable, private, loopback, unsupported, or hostless remote targets.
 - Image validation ignores Markdown image syntax inside fenced code blocks.
-- Validation helpers return booleans and do not emit verification diagnostics.
+- Boolean validation helpers preserve their 0.4.0 signatures, results, and
+  exceptions and delegate to structured diagnostic helpers.
 - A runnable `demo_validation.py` shall demonstrate all validation helpers.
+
+### SRS-FR-022 Structured Markdown Contract Diagnostics
+
+MkForge SHALL expose structured diagnostic helpers for YAML, headings,
+chapters, and image contracts.
+
+Acceptance criteria:
+
+- Each `diagnose_markdown_*` helper returns `VerificationReport` and emits one
+  error per detectable violation in deterministic source order.
+- Diagnostics expose a stable rule identifier, autonomous message, one-based
+  source position when determinable, and an optional structured target.
+- `VerificationReport.passed` means no diagnostics, while `has_errors` and
+  `has_warnings` reflect error and warning severities independently.
+- Markdown constructs inside fenced code are ignored by heading, chapter, and
+  image contract scans.
+- Remote image checks retain SSRF protections and distinguish malformed URL,
+  unreachable resource, invalid HTTP response, network failure, and timeout.

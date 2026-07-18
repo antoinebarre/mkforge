@@ -7,6 +7,10 @@ verification, which checks syntax and compliance rules.
 """
 
 from mkforge.validation.markdown_contracts import (
+    diagnose_markdown_chapters,
+    diagnose_markdown_headings,
+    diagnose_markdown_images,
+    diagnose_markdown_yaml,
     validate_markdown_chapters,
     validate_markdown_headings,
     validate_markdown_images,
@@ -14,6 +18,10 @@ from mkforge.validation.markdown_contracts import (
 )
 
 __all__ = [
+    "diagnose_markdown_chapters",
+    "diagnose_markdown_headings",
+    "diagnose_markdown_images",
+    "diagnose_markdown_yaml",
     "validate_markdown_chapters",
     "validate_markdown_headings",
     "validate_markdown_images",

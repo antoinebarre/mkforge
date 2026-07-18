@@ -30,6 +30,10 @@ from mkforge.heading_numbering import (
 from mkforge.headings import Heading, extract_headings
 from mkforge.slugify import slugify_heading
 from mkforge.validation import (
+    diagnose_markdown_chapters,
+    diagnose_markdown_headings,
+    diagnose_markdown_images,
+    diagnose_markdown_yaml,
     validate_markdown_chapters,
     validate_markdown_headings,
     validate_markdown_images,
@@ -75,6 +79,10 @@ __all__ = [
     "Text",
     "VerificationReport",
     "VerificationSettings",
+    "diagnose_markdown_chapters",
+    "diagnose_markdown_headings",
+    "diagnose_markdown_images",
+    "diagnose_markdown_yaml",
     "extract_headings",
     "renumber_markdown_headings",
     "slugify_heading",
@@ -88,4 +96,4 @@ __all__ = [
     "verify_markdown_file",
 ]
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"

@@ -124,7 +124,7 @@ scheme and host safety checks.
 | Module | Responsibility |
 |---|---|
 | `mkforge.validation` | Public validation API re-exports |
-| `mkforge.validation.markdown_contracts` | Boolean validation helpers for YAML frontmatter contracts, H2 chapter order, heading level/title order, and local or remote image existence |
+| `mkforge.validation.markdown_contracts` | Shared structured diagnostic engines plus compatible boolean adapters for YAML, headings, chapters, and images |
 
 ## 6. Static Structure — Report Generation
 
@@ -257,6 +257,8 @@ class VerificationReport {
   +rule_set_name: str
   +diagnostics: tuple[Diagnostic, ...]
   +passed: bool
+  +has_errors: bool
+  +has_warnings: bool
 }
 
 interface MarkdownRule <<type alias>> {
@@ -632,6 +634,22 @@ frozen because they are value-like and do not need composition methods.
 | `message` | `str` | required | Precise diagnostic message |
 | `category` | `str` | `"markdown-conformance"` | Diagnostic category |
 | `severity` | `str` | `"warning"` | Diagnostic severity |
+| `target` | `str | None` | `None` | Offending contract key, title, path, or URL |
+
+### 17.7 Markdown Contract Diagnosis
+
+Each public `diagnose_markdown_*` entry point validates inputs exactly as its
+0.4.0 boolean counterpart, scans source outside fenced code where applicable,
+and returns diagnostics sorted by `(line, column, rule_id)`. YAML parsing,
+heading extraction, sequence comparison, path resolution, and protected remote
+checks each have one implementation shared with the boolean adapters. Network
+failures are normalized into immutable internal outcomes before rule-specific
+diagnostics are created.
+
+Contract diagnostics use category `markdown-contract` and severity `error`.
+Missing source constructs use line and column 1; source-backed violations use
+the exact marker or target position. Boolean `validate_*` functions call the
+corresponding diagnostic function and return `report.passed`.
 
 ### 15.6 MarkdownSource
 
