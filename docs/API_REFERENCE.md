@@ -2647,3 +2647,26 @@ uv run python demo_validation.py
 Exercises: YAML frontmatter contracts, strict and minimum matching, H2 chapter
 order checks, heading level/title checks, local image existence, remote HTTP(S)
 image checks, and a combined boolean validation gate.
+# MkForge 0.5 structured contract diagnostics
+
+`diagnose_markdown_yaml(markdown, expected, *, strict=False)`,
+`diagnose_markdown_headings(markdown, expected, *, strict=False)`,
+`diagnose_markdown_chapters(markdown, expected, *, strict=False)`, and
+`diagnose_markdown_images(markdown, *, base_path=None, timeout=5.0)` return a
+`VerificationReport`. Successful contracts contain no diagnostics. Violations
+use category `markdown-contract`, severity `error`, and stable rule IDs:
+
+- YAML: `MKFYAML001` through `MKFYAML006`;
+- headings: `MKFHEADING001` through `MKFHEADING004`;
+- chapters: `MKFCHAPTER001` through `MKFCHAPTER003`;
+- images: `MKFIMAGE001` through `MKFIMAGE007`.
+
+Example:
+
+```python
+from mkforge import diagnose_markdown_yaml
+
+report = diagnose_markdown_yaml("# No metadata\n", {"title": str})
+for diagnostic in report.diagnostics:
+    print(diagnostic.rule_id, diagnostic.target)
+```

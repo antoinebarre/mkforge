@@ -24,6 +24,7 @@ class Diagnostic:
         message: Precise diagnostic message.
         category: Diagnostic category.
         severity: Diagnostic severity.
+        target: Optional structured resource or contract target.
     """
 
     rule_id: str
@@ -33,6 +34,7 @@ class Diagnostic:
     message: str
     category: str = "markdown-conformance"
     severity: str = "warning"
+    target: str | None = None
 
 
 @dataclass(frozen=True)

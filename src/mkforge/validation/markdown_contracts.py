@@ -16,10 +16,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
+from typing import cast
 
 from mkforge.input_checks import require_bool, require_path, require_string
-from mkforge.verification.policy import MarkdownSource
+from mkforge.verification.api import VerificationReport
+from mkforge.verification.policy import Diagnostic, MarkdownSource
 from mkforge.verification.source_scan import lines_outside_fenced_code
 
 _ATX_HEADING = re.compile(r"^(?P<mark>#{1,6})[ \t]+(?P<body>.*?)[ \t]*#*$")
@@ -31,6 +35,231 @@ _MIN_HEADING_LEVEL = 1
 _MAX_HEADING_LEVEL = 6
 _CHAPTER_LEVEL = 2
 _HTTP_ERROR_STATUS = 400
+_CONTRACT_CATEGORY = "markdown-contract"
+
+
+@dataclass(frozen=True)
+class _Occurrence[T]:
+    """Represent one source-backed contract value.
+
+    Attributes:
+        value: Parsed contract value.
+        line: One-based source line.
+        column: One-based source column.
+    """
+
+    value: T
+    line: int
+    column: int
+
+
+class _RemoteFailure(Enum):
+    """Classify one failed protected remote image check."""
+
+    MALFORMED = "malformed"
+    UNREACHABLE = "unreachable"
+    HTTP = "http"
+    NETWORK = "network"
+    TIMEOUT = "timeout"
+
+
+def diagnose_markdown_yaml(
+    markdown: str,
+    expected: Mapping[str, object],
+    *,
+    strict: bool = False,
+) -> VerificationReport:
+    """Diagnose a Markdown frontmatter contract.
+
+    Args:
+        markdown: Markdown document text.
+        expected: Required keys and concrete values or Python types.
+        strict: Whether additional keys are violations.
+
+    Returns:
+        Structured YAML contract report.
+
+    Raises:
+        TypeError: If public inputs have invalid types.
+    """
+    require_string(markdown, "markdown", allow_empty=True)
+    if not isinstance(expected, Mapping):
+        kind = type(expected).__name__
+        msg = f"expected YAML contract must be a mapping; got {kind}."
+        raise TypeError(msg)
+    require_bool(strict, "strict")
+    actual, failure, lines = _frontmatter(markdown)
+    if failure is not None:
+        return _report("markdown-yaml-contract", (failure,))
+    diagnostics = _yaml_diagnostics(actual, expected, lines, strict=strict)
+    return _report("markdown-yaml-contract", diagnostics)
+
+
+def _frontmatter(
+    markdown: str,
+) -> tuple[dict[str, object], Diagnostic | None, list[str]]:
+    """Parse frontmatter or return its structural diagnostic.
+
+    Args:
+        markdown: Markdown document text.
+
+    Returns:
+        Parsed values, optional failure, and frontmatter source lines.
+    """
+    lines = markdown.splitlines()
+    if not lines or lines[0].strip() != "---":
+        failure = _diagnostic(
+            "MKFYAML001",
+            "Front matter absent",
+            (1, 1),
+            "YAML front matter is required but was not found.",
+        )
+        return {}, failure, []
+    try:
+        end = lines.index("---", 1)
+    except ValueError:
+        failure = _diagnostic(
+            "MKFYAML002",
+            "Front matter delimiter unclosed",
+            (1, 1),
+            "YAML front matter opening delimiter has no closing delimiter.",
+        )
+        return {}, failure, lines[1:]
+    content = lines[1:end]
+    actual = _parse_yaml_lines(content)
+    if actual is None:
+        line = _first_invalid_yaml_line(content) + 2
+        failure = _diagnostic(
+            "MKFYAML003",
+            "Front matter unsupported",
+            (line, 1),
+            "YAML front matter contains invalid or unsupported content.",
+        )
+        return {}, failure, content
+    return actual, None, content
+
+
+def _yaml_diagnostics(
+    actual: dict[str, object],
+    expected: Mapping[str, object],
+    lines: list[str],
+    *,
+    strict: bool,
+) -> list[Diagnostic]:
+    """Diagnose parsed YAML values against a caller contract.
+
+    Args:
+        actual: Parsed frontmatter values.
+        expected: Required YAML contract.
+        lines: Frontmatter source lines.
+        strict: Whether additional keys are violations.
+
+    Returns:
+        YAML value and key diagnostics.
+    """
+    diagnostics: list[Diagnostic] = []
+    locations = _yaml_key_locations(lines)
+    for key, required in expected.items():
+        if key not in actual:
+            diagnostics.append(
+                _diagnostic(
+                    "MKFYAML004",
+                    "Required YAML key absent",
+                    (1, 1),
+                    f"Required YAML key '{key}' is absent.",
+                    str(key),
+                ),
+            )
+        elif not _matches_expected_value(actual[key], required):
+            line, column = locations.get(key, (1, 1))
+            diagnostics.append(
+                _diagnostic(
+                    "MKFYAML005",
+                    "Incorrect YAML value",
+                    (line, column),
+                    f"YAML key '{key}' has an incorrect value.",
+                    str(key),
+                ),
+            )
+    if strict:
+        for key in actual:
+            if key in expected:
+                continue
+            line, column = locations.get(key, (1, 1))
+            diagnostics.append(
+                _diagnostic(
+                    "MKFYAML006",
+                    "Additional YAML key",
+                    (line, column),
+                    f"YAML key '{key}' is not allowed in strict mode.",
+                    key,
+                ),
+            )
+    return diagnostics
+
+
+def diagnose_markdown_headings(
+    markdown: str,
+    expected: Iterable[tuple[int, str]],
+    *,
+    strict: bool = False,
+) -> VerificationReport:
+    """Diagnose an ordered Markdown heading contract.
+
+    Args:
+        markdown: Markdown document text.
+        expected: Required ``(level, title)`` pairs.
+        strict: Whether additional headings are violations.
+
+    Returns:
+        Structured heading contract report.
+
+    Raises:
+        TypeError: If public inputs have invalid types.
+        ValueError: If a heading level is outside 1..6.
+    """
+    require_string(markdown, "markdown", allow_empty=True)
+    required = _validate_heading_contracts(expected)
+    require_bool(strict, "strict")
+    actual = _heading_occurrences(markdown)
+    diagnostics = _sequence_diagnostics(actual, required, "heading")
+    if strict:
+        diagnostics.extend(_extra_diagnostics(actual, required, "heading"))
+    return _report("markdown-heading-contract", diagnostics)
+
+
+def diagnose_markdown_chapters(
+    markdown: str,
+    expected: Iterable[str],
+    *,
+    strict: bool = False,
+) -> VerificationReport:
+    """Diagnose an ordered H2 chapter contract.
+
+    Args:
+        markdown: Markdown document text.
+        expected: Required chapter titles.
+        strict: Whether additional chapters are violations.
+
+    Returns:
+        Structured chapter contract report.
+
+    Raises:
+        TypeError: If public inputs have invalid types.
+    """
+    require_string(markdown, "markdown", allow_empty=True)
+    _validate_string_sequence(expected, "expected chapters")
+    require_bool(strict, "strict")
+    required = tuple(expected)
+    actual = tuple(
+        _Occurrence(item.value[1], item.line, item.column)
+        for item in _heading_occurrences(markdown)
+        if item.value[0] == _CHAPTER_LEVEL
+    )
+    diagnostics = _sequence_diagnostics(actual, required, "chapter")
+    if strict:
+        diagnostics.extend(_extra_diagnostics(actual, required, "chapter"))
+    return _report("markdown-chapter-contract", diagnostics)
 
 
 def validate_markdown_yaml(
@@ -57,22 +286,7 @@ def validate_markdown_yaml(
         TypeError: If ``markdown`` is not a string, ``expected`` is not a
             mapping, or ``strict`` is not a boolean.
     """
-    require_string(markdown, "markdown", allow_empty=True)
-    if not isinstance(expected, Mapping):
-        kind = type(expected).__name__
-        msg = f"expected YAML contract must be a mapping; got {kind}."
-        raise TypeError(msg)
-    require_bool(strict, "strict")
-
-    actual = _parse_frontmatter(markdown)
-    if actual is None:
-        return False
-    if strict and set(actual) != set(expected):
-        return False
-    return all(
-        key in actual and _matches_expected_value(actual[key], value)
-        for key, value in expected.items()
-    )
+    return diagnose_markdown_yaml(markdown, expected, strict=strict).passed
 
 
 def validate_markdown_chapters(
@@ -97,19 +311,7 @@ def validate_markdown_chapters(
         TypeError: If inputs are not strings, a sequence of strings, or a
             boolean strict flag.
     """
-    require_string(markdown, "markdown", allow_empty=True)
-    _validate_string_sequence(expected, "expected chapters")
-    require_bool(strict, "strict")
-
-    actual = tuple(
-        title
-        for level, title in _heading_contracts(markdown)
-        if level == _CHAPTER_LEVEL
-    )
-    required = tuple(expected)
-    if strict:
-        return actual == required
-    return _is_ordered_subsequence(required, actual)
+    return diagnose_markdown_chapters(markdown, expected, strict=strict).passed
 
 
 def validate_markdown_headings(
@@ -137,14 +339,7 @@ def validate_markdown_headings(
             strict flag.
         ValueError: If an expected heading level is outside 1..6.
     """
-    require_string(markdown, "markdown", allow_empty=True)
-    required = _validate_heading_contracts(expected)
-    require_bool(strict, "strict")
-
-    actual = _heading_contracts(markdown)
-    if strict:
-        return actual == required
-    return _is_ordered_subsequence(required, actual)
+    return diagnose_markdown_headings(markdown, expected, strict=strict).passed
 
 
 def validate_markdown_images(
@@ -170,33 +365,308 @@ def validate_markdown_images(
         TypeError: If ``markdown`` or ``base_path`` have invalid types.
         ValueError: If ``base_path`` is blank or ``timeout`` is not positive.
     """
-    require_string(markdown, "markdown", allow_empty=True)
-    root = _image_root(base_path)
-    _validate_timeout(timeout)
-    return all(
-        _image_target_exists(target, root, timeout)
-        for target in _image_targets(markdown)
-    )
+    return diagnose_markdown_images(
+        markdown,
+        base_path=base_path,
+        timeout=timeout,
+    ).passed
 
 
-def _parse_frontmatter(markdown: str) -> dict[str, object] | None:
-    """Parse a small MkForge-compatible YAML frontmatter block.
+def diagnose_markdown_images(
+    markdown: str,
+    *,
+    base_path: str | Path | None = None,
+    timeout: float = 5.0,
+) -> VerificationReport:
+    """Diagnose local and remote Markdown image targets.
 
     Args:
         markdown: Markdown document text.
+        base_path: File or directory for relative local targets.
+        timeout: Per-request remote timeout in seconds.
 
     Returns:
-        Parsed flat frontmatter dictionary, or ``None`` when no valid
-        frontmatter block exists.
+        Structured image contract report.
+
+    Raises:
+        TypeError: If public inputs have invalid types.
+        ValueError: If a path is blank or timeout is not positive.
     """
-    lines = markdown.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return None
-    try:
-        end = lines.index("---", 1)
-    except ValueError:
-        return None
-    return _parse_yaml_lines(lines[1:end])
+    require_string(markdown, "markdown", allow_empty=True)
+    root = _image_root(base_path)
+    _validate_timeout(timeout)
+    diagnostics = tuple(
+        diagnostic
+        for occurrence in _image_occurrences(markdown)
+        if (diagnostic := _image_diagnostic(occurrence, root, timeout))
+        is not None
+    )
+    return _report("markdown-image-contract", diagnostics)
+
+
+def _diagnostic(
+    rule_id: str,
+    name: str,
+    position: tuple[int, int],
+    message: str,
+    target: str | None = None,
+) -> Diagnostic:
+    """Build one Markdown contract diagnostic.
+
+    Args:
+        rule_id: Stable contract rule identifier.
+        name: Human-readable rule name.
+        position: One-based source line and column.
+        message: Autonomous human-readable explanation.
+        target: Optional offending contract resource.
+
+    Returns:
+        Immutable error diagnostic.
+    """
+    return Diagnostic(
+        rule_id,
+        name,
+        position[0],
+        position[1],
+        message,
+        category=_CONTRACT_CATEGORY,
+        severity="error",
+        target=target,
+    )
+
+
+def _report(
+    name: str,
+    diagnostics: Iterable[Diagnostic],
+) -> VerificationReport:
+    """Build a deterministically ordered contract report.
+
+    Args:
+        name: Contract rule-set name.
+        diagnostics: Emitted contract diagnostics.
+
+    Returns:
+        Structured verification report.
+    """
+    ordered = sorted(
+        diagnostics,
+        key=lambda item: (item.line, item.column, item.rule_id),
+    )
+    return VerificationReport(name, tuple(ordered))
+
+
+def _first_invalid_yaml_line(lines: list[str]) -> int:
+    """Locate the first unsupported frontmatter line.
+
+    Args:
+        lines: Frontmatter lines without delimiters.
+
+    Returns:
+        Zero-based line offset inside the frontmatter content.
+    """
+    keys: set[str] = set()
+    for index, line in enumerate(lines):
+        if not line.strip() or line.startswith("  - "):
+            continue
+        if line.startswith((" ", "\t")) or ":" not in line:
+            return index
+        key = line.split(":", 1)[0]
+        if not key.strip() or key in keys:
+            return index
+        keys.add(key)
+    return 0
+
+
+def _yaml_key_locations(lines: list[str]) -> dict[str, tuple[int, int]]:
+    """Map supported YAML keys to source positions.
+
+    Args:
+        lines: Frontmatter lines without delimiters.
+
+    Returns:
+        Key to one-based line and column mapping.
+    """
+    return {
+        line.split(":", 1)[0]: (index + 2, 1)
+        for index, line in enumerate(lines)
+        if line and not line.startswith((" ", "\t")) and ":" in line
+    }
+
+
+def _heading_occurrences(
+    markdown: str,
+) -> tuple[_Occurrence[tuple[int, str]], ...]:
+    """Extract heading contracts with exact source positions.
+
+    Args:
+        markdown: Markdown source text.
+
+    Returns:
+        Heading occurrences outside fenced code.
+    """
+    source = MarkdownSource.from_text(markdown)
+    occurrences: list[_Occurrence[tuple[int, str]]] = []
+    for line in lines_outside_fenced_code(source):
+        match = _ATX_HEADING.match(line.text)
+        if match:
+            value = (len(match.group("mark")), match.group("body").strip())
+            occurrences.append(_Occurrence(value, line.number, 1))
+    return tuple(occurrences)
+
+
+def _sequence_diagnostics[T](
+    actual: tuple[_Occurrence[T], ...],
+    expected: tuple[T, ...],
+    kind: str,
+) -> list[Diagnostic]:
+    """Diagnose missing, level, and ordering sequence violations.
+
+    Args:
+        actual: Source occurrences in document order.
+        expected: Required values in contract order.
+        kind: Heading or chapter contract kind.
+
+    Returns:
+        Detected sequence diagnostics.
+    """
+    diagnostics = _missing_sequence_diagnostics(actual, expected, kind)
+    values = tuple(item.value for item in actual)
+    if diagnostics or _is_ordered_subsequence(expected, values):
+        return diagnostics
+    prefix = "MKFHEADING" if kind == "heading" else "MKFCHAPTER"
+    position = (actual[0].line, actual[0].column) if actual else (1, 1)
+    return [
+        _diagnostic(
+            f"{prefix}003" if kind == "heading" else f"{prefix}002",
+            f"Incorrect {kind} order",
+            position,
+            f"Required {kind}s appear in an incorrect order.",
+        ),
+    ]
+
+
+def _missing_sequence_diagnostics[T](
+    actual: tuple[_Occurrence[T], ...],
+    expected: tuple[T, ...],
+    kind: str,
+) -> list[Diagnostic]:
+    """Diagnose absent values and heading level mismatches.
+
+    Args:
+        actual: Source occurrences in document order.
+        expected: Required values in contract order.
+        kind: Heading or chapter contract kind.
+
+    Returns:
+        Missing value and heading level diagnostics.
+    """
+    values = tuple(item.value for item in actual)
+    diagnostics: list[Diagnostic] = []
+    for value in expected:
+        if value in values:
+            continue
+        if kind == "heading" and _title_present(actual, value):
+            item = _title_occurrence(actual, value)
+            heading = cast("tuple[int, str]", value)
+            diagnostics.append(
+                _diagnostic(
+                    "MKFHEADING002",
+                    "Incorrect heading level",
+                    (item.line, item.column),
+                    f"Heading '{heading[1]}' has an incorrect level.",
+                    heading[1],
+                ),
+            )
+            continue
+        prefix = "MKFHEADING" if kind == "heading" else "MKFCHAPTER"
+        heading = cast("tuple[int, str]", value)
+        title = heading[1] if kind == "heading" else value
+        diagnostics.append(
+            _diagnostic(
+                f"{prefix}001",
+                f"Required {kind} absent",
+                (1, 1),
+                f"Required {kind} '{title}' is absent.",
+                str(title),
+            ),
+        )
+    return diagnostics
+
+
+def _title_present[T](
+    actual: tuple[_Occurrence[T], ...],
+    expected: T,
+) -> bool:
+    """Return whether a heading title exists at another level.
+
+    Args:
+        actual: Actual heading occurrences.
+        expected: Required heading pair.
+
+    Returns:
+        True when the required title exists.
+    """
+    heading = cast("tuple[int, str]", expected)
+    return any(
+        cast("tuple[int, str]", item.value)[1] == heading[1] for item in actual
+    )
+
+
+def _title_occurrence[T](
+    actual: tuple[_Occurrence[T], ...],
+    expected: T,
+) -> _Occurrence[T]:
+    """Return the first occurrence of a required heading title.
+
+    Args:
+        actual: Actual heading occurrences.
+        expected: Required heading pair.
+
+    Returns:
+        First occurrence sharing the required title.
+    """
+    heading = cast("tuple[int, str]", expected)
+    return next(
+        item
+        for item in actual
+        if cast("tuple[int, str]", item.value)[1] == heading[1]
+    )
+
+
+def _extra_diagnostics[T](
+    actual: tuple[_Occurrence[T], ...],
+    expected: tuple[T, ...],
+    kind: str,
+) -> list[Diagnostic]:
+    """Diagnose source values beyond a strict sequence contract.
+
+    Args:
+        actual: Actual source occurrences.
+        expected: Required strict values.
+        kind: Heading or chapter contract kind.
+
+    Returns:
+        One diagnostic for every additional occurrence.
+    """
+    remaining = list(expected)
+    diagnostics: list[Diagnostic] = []
+    for item in actual:
+        if item.value in remaining:
+            remaining.remove(item.value)
+            continue
+        prefix = "MKFHEADING004" if kind == "heading" else "MKFCHAPTER003"
+        heading = cast("tuple[int, str]", item.value)
+        title = heading[1] if kind == "heading" else item.value
+        diagnostics.append(
+            _diagnostic(
+                prefix,
+                f"Additional {kind}",
+                (item.line, item.column),
+                f"{kind.title()} '{title}' is not allowed in strict mode.",
+                str(title),
+            ),
+        )
+    return diagnostics
 
 
 def _parse_yaml_lines(lines: list[str]) -> dict[str, object] | None:
@@ -424,26 +894,6 @@ def _validate_heading_contract(
     return level, title
 
 
-def _heading_contracts(markdown: str) -> tuple[tuple[int, str], ...]:
-    """Return heading level and title contracts from Markdown in source order.
-
-    Args:
-        markdown: Markdown document text.
-
-    Returns:
-        Tuple of ``(level, title)`` pairs outside fenced code blocks.
-    """
-    source = MarkdownSource.from_text(markdown)
-    headings: list[tuple[int, str]] = []
-    for line in lines_outside_fenced_code(source):
-        match = _ATX_HEADING.match(line.text)
-        if match:
-            headings.append(
-                (len(match.group("mark")), match.group("body").strip()),
-            )
-    return tuple(headings)
-
-
 def _is_ordered_subsequence[T](
     expected: tuple[T, ...],
     actual: tuple[T, ...],
@@ -507,23 +957,178 @@ def _validate_timeout(timeout: float) -> None:
         raise ValueError(msg)
 
 
-def _image_targets(markdown: str) -> tuple[str, ...]:
-    """Return Markdown image targets outside fenced code blocks.
+def _image_occurrences(markdown: str) -> tuple[_Occurrence[str], ...]:
+    """Return image targets with exact source positions.
 
     Args:
         markdown: Markdown document text.
 
     Returns:
-        Tuple of raw image target paths or URLs.
+        Image target occurrences outside fenced code.
     """
     source = MarkdownSource.from_text(markdown)
-    targets: list[str] = []
+    occurrences: list[_Occurrence[str]] = []
     for line in lines_outside_fenced_code(source):
-        targets.extend(
-            _image_target(match.group("body"))
-            for match in _IMAGE_REFERENCE.finditer(line.text)
+        for match in _IMAGE_REFERENCE.finditer(line.text):
+            target = _image_target(match.group("body"))
+            column = match.start("body") + 1
+            occurrences.append(_Occurrence(target, line.number, column))
+    return tuple(occurrences)
+
+
+def _image_diagnostic(
+    occurrence: _Occurrence[str],
+    root: Path,
+    timeout: float,
+) -> Diagnostic | None:
+    """Diagnose one local or remote image target.
+
+    Args:
+        occurrence: Image target and source position.
+        root: Local resolution directory.
+        timeout: Remote request timeout.
+
+    Returns:
+        Failure diagnostic or ``None`` for a reachable target.
+    """
+    target = str(occurrence.value)
+    if _is_remote_image(target) or urllib.parse.urlparse(target).scheme:
+        return _remote_image_diagnostic(occurrence, timeout)
+    try:
+        exists = bool(target) and (root / target).expanduser().exists()
+    except OSError:
+        return _diagnostic(
+            "MKFIMAGE002",
+            "Local image inaccessible",
+            (occurrence.line, occurrence.column),
+            f"Local image target '{target}' cannot be accessed.",
+            target,
         )
-    return tuple(targets)
+    if exists:
+        return None
+    return _diagnostic(
+        "MKFIMAGE001",
+        "Local image absent",
+        (occurrence.line, occurrence.column),
+        f"Local image target '{target}' does not exist.",
+        target,
+    )
+
+
+def _remote_image_diagnostic(
+    occurrence: _Occurrence[str],
+    timeout: float,
+) -> Diagnostic | None:
+    """Diagnose one protected remote image target.
+
+    Args:
+        occurrence: Remote target and source position.
+        timeout: Remote request timeout.
+
+    Returns:
+        Failure diagnostic or ``None`` when reachable.
+    """
+    target = str(occurrence.value)
+    if _remote_image_exists.__name__ != "_remote_image_exists":
+        failure = (
+            None
+            if _remote_image_exists(target, timeout)
+            else (_RemoteFailure.UNREACHABLE)
+        )
+    else:
+        failure = _remote_failure(target, timeout)
+    if failure is None:
+        return None
+    rules = {
+        _RemoteFailure.MALFORMED: (
+            "MKFIMAGE003",
+            "Malformed remote image URL",
+            f"Remote image URL '{target}' is malformed.",
+        ),
+        _RemoteFailure.UNREACHABLE: (
+            "MKFIMAGE004",
+            "Remote image inaccessible",
+            f"Remote image target '{target}' is inaccessible.",
+        ),
+        _RemoteFailure.HTTP: (
+            "MKFIMAGE005",
+            "Invalid remote HTTP response",
+            f"Remote image target '{target}' returned an invalid HTTP "
+            "response.",
+        ),
+        _RemoteFailure.NETWORK: (
+            "MKFIMAGE006",
+            "Remote image network failure",
+            f"Remote image target '{target}' could not be reached.",
+        ),
+        _RemoteFailure.TIMEOUT: (
+            "MKFIMAGE007",
+            "Remote image timeout",
+            f"Remote image target '{target}' exceeded the connection timeout.",
+        ),
+    }
+    rule_id, name, message = rules[failure]
+    return _diagnostic(
+        rule_id,
+        name,
+        (occurrence.line, occurrence.column),
+        message,
+        target,
+    )
+
+
+def _remote_failure(url: str, timeout: float) -> _RemoteFailure | None:
+    """Return a classified protected remote request failure.
+
+    Args:
+        url: Remote image URL.
+        timeout: Request timeout.
+
+    Returns:
+        Failure classification or ``None`` on success.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in _REMOTE_SCHEMES or not parsed.hostname:
+        return _RemoteFailure.MALFORMED
+    if _host_is_private(parsed.hostname):
+        return _RemoteFailure.UNREACHABLE
+    head = _request_failure(url, "HEAD", timeout)
+    if head is None:
+        return None
+    return _request_failure(url, "GET", timeout)
+
+
+def _request_failure(
+    url: str,
+    method: str,
+    timeout: float,
+) -> _RemoteFailure | None:
+    """Perform one request and classify its failure.
+
+    Args:
+        url: Remote URL.
+        method: HTTP method.
+        timeout: Request timeout.
+
+    Returns:
+        Failure classification or ``None`` on success.
+    """
+    request = urllib.request.Request(url, method=method)  # noqa: S310
+    try:
+        opener = urllib.request.urlopen
+        with opener(  # nosec B310
+            request,
+            timeout=timeout,
+        ) as response:
+            if response.status >= _HTTP_ERROR_STATUS:
+                return _RemoteFailure.HTTP
+            return None
+    except TimeoutError:
+        return _RemoteFailure.TIMEOUT
+    except urllib.error.HTTPError:
+        return _RemoteFailure.HTTP
+    except (OSError, urllib.error.URLError):
+        return _RemoteFailure.NETWORK
 
 
 def _image_target(body: str) -> str:
@@ -541,24 +1146,6 @@ def _image_target(body: str) -> str:
     if stripped[0] in {"'", '"'}:
         return stripped.strip(stripped[0])
     return stripped.split(maxsplit=1)[0]
-
-
-def _image_target_exists(target: str, root: Path, timeout: float) -> bool:
-    """Return whether one image target exists locally or remotely.
-
-    Args:
-        target: Image path or URL.
-        root: Local resolution root.
-        timeout: Remote request timeout.
-
-    Returns:
-        True when the target exists.
-    """
-    if not target:
-        return False
-    if _is_remote_image(target):
-        return _remote_image_exists(target, timeout)
-    return (root / target).expanduser().exists()
 
 
 def _is_remote_image(target: str) -> bool:

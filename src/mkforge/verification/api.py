@@ -36,6 +36,24 @@ class VerificationReport:
         """
         return not self.diagnostics
 
+    @property
+    def has_errors(self) -> bool:
+        """Return whether any diagnostic has error severity.
+
+        Returns:
+            True when at least one diagnostic is an error.
+        """
+        return any(item.severity == "error" for item in self.diagnostics)
+
+    @property
+    def has_warnings(self) -> bool:
+        """Return whether any diagnostic has warning severity.
+
+        Returns:
+            True when at least one diagnostic is a warning.
+        """
+        return any(item.severity == "warning" for item in self.diagnostics)
+
 
 def verify_markdown(
     source: str,
